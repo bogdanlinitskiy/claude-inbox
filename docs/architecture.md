@@ -12,7 +12,7 @@ One Go binary, `claude-inbox`, with two commands:
 - `claude-inbox hook` is the hook command. It appends the hook payload to the session's event file and exits.
 
 The hook writes to files, so it works while the app is down. The app turns a session's events into its current
-state with one pure function, tested against a recorded run (`app/testdata/spike-hooks.jsonl`).
+state with one pure function, tested against a recorded run (`testdata/spike-hooks.jsonl`).
 
 ```
  browser page ──HTTP/SSE/WS──▶ claude-inbox serve ──tmux new-session / send-keys──▶ tmux ── claude

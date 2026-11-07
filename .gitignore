@@ -1,8 +1,8 @@
 # Build output
-app/bin/
+bin/
 
 # Go caches of the Docker targets
-app/.cache/
+.cache/
 
 # Editor and personal notes
 .idea/

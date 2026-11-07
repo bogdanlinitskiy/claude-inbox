@@ -4,7 +4,8 @@ A local web app that lists every running Claude Code session, with the ones wait
 top. It answers them by typing into their tmux pane, shows their live terminal and diff, and alerts when one starts
 waiting.
 
-The Go app is in `app/`; the repo root holds only docs.
+One Go module at the repository root: `cmd/claude-inbox` is the binary, `internal/` its packages, `web/` the
+page it embeds.
 
 ## How it works
 
@@ -26,7 +27,7 @@ an IDE terminal, so the app can answer it.
 - `docs/architecture.md` — design: state directory, hook modes, packages, state machine, HTTP API. Code comments
   cite its sections.
 
-## Commands (in `app/`)
+## Commands
 
 ```bash
 make build             # in Docker

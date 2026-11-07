@@ -43,16 +43,15 @@ its pane. You never have to use tmux yourself.
 With Go:
 
 ```bash
-go install github.com/bogdanlinitskiy/claude-inbox/app/cmd/claude-inbox@latest
+go install github.com/bogdanlinitskiy/claude-inbox/cmd/claude-inbox@latest
 ```
 
 This puts `claude-inbox` in `$(go env GOPATH)/bin`. `claude-tmux` is a script that comes with the repository
-(`app/scripts/claude-tmux`); copy it next to the binary if you want it.
+(`scripts/claude-tmux`); copy it next to the binary if you want it.
 
 From a clone, with Docker and nothing else:
 
 ```bash
-cd app
 make install    # builds in Docker, installs claude-inbox and claude-tmux to ~/.local/bin
 ```
 
@@ -184,7 +183,7 @@ do not share the login link.
 
 ## Development
 
-All commands run in `app/`:
+From the repository root:
 
 ```bash
 make build             # in Docker
@@ -198,4 +197,4 @@ How it works inside: [docs/architecture.md](docs/architecture.md).
 
 ## License
 
-MIT, see [LICENSE](LICENSE). The vendored xterm.js is MIT too (`app/web/vendor/LICENSE-xterm`).
+MIT, see [LICENSE](LICENSE). The vendored xterm.js is MIT too (`web/vendor/LICENSE-xterm`).
