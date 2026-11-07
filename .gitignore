@@ -1,0 +1,9 @@
+# Build output
+app/bin/
+
+# Go caches of the Docker targets
+app/.cache/
+
+# Editor and personal notes
+.idea/
+CLAUDE.local.md

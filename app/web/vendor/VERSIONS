@@ -1,0 +1,9 @@
+Vendored on 2026-10-18 from the npm registry; tarballs checked against the published sha512 integrity.
+@xterm/xterm 5.5.0      sha512-hqJHYaQb5OptNunnyAnkHyM8aCjZ1MEIDTQu1iIbbTD/xops91NB5yq1ZK/dC2JDbVWtF23zUtl9JE2NqwT87A==  (lib/xterm.js, css/xterm.css)
+@xterm/addon-fit 0.10.0 sha512-UFYkDm4HUahf2lnEyHvio51TNGiLK66mqP2JoATy7hRZeXaGMRDr00JiSF7m63vR5WKATF605yEggJKsw0JpMQ==  (lib/addon-fit.js)
+
+Fonts vendored on 2026-11-07 the same way (SIL Open Font License 1.1, fonts/LICENSE-*); every *-wght-normal.woff2
+subset, and fonts/fonts.css generated from each package's index.css with the family names tokens.css uses.
+@fontsource-variable/plus-jakarta-sans 5.3.0 sha512-/l/4r0yyWK9JzAlmA0LiYgGgmJe/Gswt4jTJEzr5QhJfwMbvJZDmYWyW0M4X7yCK69BajMVlV/Lx8g7WDc1+sw==
+@fontsource-variable/space-grotesk 5.3.0     sha512-2IxmvfB08i9vnGB3Ym/AXvhRE+8XOjWMXIyDum03c+tPwH0FUoMNQfGpU8NXPxjbws0Vvss3AH0Zqt4oJBBAdw==
+@fontsource-variable/jetbrains-mono 5.3.0    sha512-F32xpS2NsGYoQi2ADSkKTgpJj7ozajsGgDJ8woTnqjmIB+dxDIqImjl4pXZVEExu8UFZ2ndhmX18EBS/hdz3Lw==

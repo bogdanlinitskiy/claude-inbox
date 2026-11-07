@@ -1,0 +1,54 @@
+#!/usr/bin/env bash
+# claude-tmux starts claude inside a new tmux session, named like the app names its own (<ticket>-<repo>), so the
+# Session Inbox can answer it and show its terminal. Arguments go to claude. Inside tmux already, it just runs
+# claude. When claude exits, the tmux session ends and the command to resume the conversation is printed.
+set -euo pipefail
+
+if [[ -n "${TMUX:-}" ]]; then
+  exec claude ${1+"$@"}
+fi
+
+# The name comes from claude-inbox, installed next to this script (else on PATH), so it follows the app's config
+# (ticket pattern, prefix). Without it, the folder name.
+inbox="$(dirname "$0")/claude-inbox"
+[[ -x "$inbox" ]] || inbox=claude-inbox
+base=$("$inbox" tmux-name 2>/dev/null || basename "$(git rev-parse --show-toplevel 2>/dev/null || pwd)")
+# tmux names are used unquoted in targets, as in the app.
+base=${base//[^A-Za-z0-9_-]/_}
+
+name=$base
+n=1
+while tmux has-session -t "=$name" 2>/dev/null; do
+  n=$((n + 1))
+  name=$base-$n
+done
+
+# A tmux server started elsewhere does not pass these on, and claude needs them to connect to the IDE.
+env_args=()
+for var in TERMINAL_EMULATOR CLAUDE_CODE_SSE_PORT ENABLE_IDE_INTEGRATION; do
+  if [[ -n "${!var:-}" ]]; then
+    env_args+=(-e "$var=${!var}")
+  fi
+done
+
+# claude prints how to resume the conversation as it exits, and the tmux session closes right after, taking the
+# screen with it. So the pane saves its last lines before it closes, and the resume command is printed here.
+last=$(mktemp "${TMPDIR:-/tmp}/claude-tmux.XXXXXX")
+trap 'rm -f "$last"' EXIT
+# Expanded by the shell inside the pane, not here.
+run='claude "$@"; status=$?; tmux capture-pane -p -J -S -50 -t "$TMUX_PANE" > "$CLAUDE_TMUX_LAST"; exit $status'
+
+# As in the app: no status bar, and the mouse wheel scrolls back through the output.
+# ${a[@]+"${a[@]}"} and ${1+"$@"}: macOS's bash 3.2 calls an empty array unbound under set -u.
+tmux new-session -d -s "$name" -c "$PWD" ${env_args[@]+"${env_args[@]}"} -e "CLAUDE_TMUX_LAST=$last" -- bash -c "$run" claude-tmux ${1+"$@"} \; \
+  set-option -t "=$name:" status off \; set-option -t "=$name:" mouse on
+tmux attach-session -t "=$name" || true
+
+if tmux has-session -t "=$name" 2>/dev/null; then
+  echo "Detached. Claude keeps running; reattach with: tmux attach -t =$name"
+  exit 0
+fi
+id=$(grep -oE -- '--resume [0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}' "$last" | tail -n 1 || true)
+if [[ -n "$id" ]]; then
+  echo "Resume this session with: claude-tmux $id"
+fi

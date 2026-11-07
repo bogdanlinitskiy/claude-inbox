@@ -1,0 +1,50 @@
+/* Design tokens: the fonts and the two token blocks (dark by default, light under data-theme="light"). app.css
+   uses only these names. The fonts ship with the app (vendor/fonts), so the page loads nothing from the internet. */
+@import url("vendor/fonts/fonts.css");
+
+:root {
+  --s1: 4px; --s2: 8px; --s3: 12px; --s4: 16px; --s5: 24px; --s6: 32px;
+  --r-sm: 8px; --r-md: 10px; --r-lg: 18px; --r-xl: 22px; --r-pill: 999px;
+  --t-xs: 12px; --t-sm: 13px; --t-md: 13.5px; --t-lg: 16px; --t-xl: 20px; --t-num: 40px;
+  --font-ui: "Plus Jakarta Sans", system-ui, "Ubuntu", sans-serif;
+  --font-display: "Space Grotesk", "Plus Jakarta Sans", system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", "DejaVu Sans Mono", ui-monospace, monospace;
+  --nav-wide: 240px; --nav-rail: 68px;
+  --blur: blur(22px) saturate(150%);
+  --grad: linear-gradient(135deg, #ff4fd8, #a855f7 50%, #22d3ee);
+  --grad-soft: linear-gradient(135deg, rgb(255 79 216 / 32%), rgb(168 85 247 / 22%) 55%, rgb(34 211 238 / 14%));
+  --grad-shadow: 0 8px 26px -8px rgb(255 79 216 / 80%);
+
+  /* Dark, the default. Text colors (--fg, --muted, --faint) are at least 4.5:1 on --bg and on --panel over it;
+     --deco is for marks that are not text. */
+  --bg: #0a0814; --panel: rgb(255 255 255 / 5%); --panel-solid: #171328; --raised: rgb(255 255 255 / 7.5%);
+  --sunk: rgb(255 255 255 / 6%); --active: rgb(255 255 255 / 9%); --line: rgb(255 255 255 / 10%); --line-2: rgb(255 255 255 / 16%);
+  --fg: #f6f3ff; --muted: #bdb7d6; --faint: #918bad; --deco: rgb(255 255 255 / 22%);
+  --ink: #f6f3ff; --ink-fg: #140f24;
+  --up: #4ade80; --up-bg: rgb(74 222 128 / 13%); --wait: #fbbf24; --wait-bg: rgb(251 191 36 / 13%);
+  --fail: #ff5c8a; --fail-bg: rgb(255 92 138 / 15%);
+  --accent: #ff6ad5; --accent-bg: rgb(255 106 213 / 15%); --violet: #c4b5fd; --violet-bg: rgb(167 139 250 / 15%); --teal: #22d3ee;
+  --log-bg: rgb(0 0 0 / 32%); --log-fg: #e9e4f7;
+  --mesh: radial-gradient(900px 640px at 6% -10%, rgb(168 85 247 / 36%), transparent 60%),
+    radial-gradient(820px 620px at 100% -4%, rgb(255 79 216 / 28%), transparent 60%),
+    radial-gradient(760px 520px at 60% 112%, rgb(34 211 238 / 18%), transparent 60%);
+  --sheen: inset 0 1px 0 rgb(255 255 255 / 7%); --glow: 0.55; --pop-shadow: 0 30px 80px rgb(0 0 0 / 60%);
+  --ring: #1a1530;
+  color-scheme: dark;
+}
+:root[data-theme="light"] {
+  --bg: #f1edfb; --panel: rgb(255 255 255 / 66%); --panel-solid: #ffffff; --raised: rgb(255 255 255 / 80%);
+  --sunk: rgb(160 60 200 / 7%); --active: rgb(160 60 200 / 10%); --line: rgb(110 60 160 / 14%); --line-2: rgb(110 60 160 / 24%);
+  --fg: #1d1530; --muted: #54496e; --faint: #6d628a; --deco: rgb(110 60 160 / 28%);
+  --ink: #1d1530; --ink-fg: #f6f3ff;
+  --up: #13804a; --up-bg: rgb(19 128 74 / 11%); --wait: #a35600; --wait-bg: rgb(230 150 20 / 16%);
+  --fail: #d02a5a; --fail-bg: rgb(208 42 90 / 10%);
+  --accent: #c0269c; --accent-bg: rgb(192 38 156 / 10%); --violet: #7c3aed; --violet-bg: rgb(124 58 237 / 10%); --teal: #0e7490;
+  --log-bg: #1d1530; --log-fg: #e9e4f7;
+  --mesh: radial-gradient(900px 640px at 6% -10%, rgb(168 85 247 / 24%), transparent 60%),
+    radial-gradient(820px 620px at 100% -4%, rgb(255 79 216 / 22%), transparent 60%),
+    radial-gradient(760px 520px at 60% 112%, rgb(34 211 238 / 18%), transparent 60%);
+  --sheen: inset 0 1px 0 rgb(255 255 255 / 80%), 0 8px 30px -12px rgb(90 40 140 / 18%); --glow: 0.3; --pop-shadow: 0 30px 80px rgb(90 40 140 / 22%);
+  --ring: #f4effc;
+  color-scheme: light;
+}
