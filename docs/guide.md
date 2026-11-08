@@ -38,6 +38,14 @@ The reply box under the selected session changes with its state:
 | Working | A message box (Claude reads it after the current step) and Interrupt |
 | Idle or finished | A message box |
 
+An option, a permission, and an answer in your own words:
+
+![Answering a question with one of its options](media/answer-option.gif)
+
+![Allowing a command Claude asks to run](media/answer-permission.gif)
+
+![Answering a question in your own words](media/answer-text.gif)
+
 Your own buttons sit above the reply box and in the Actions menu, see [actions.md](actions.md).
 
 Answers are typed into the session's tmux pane, so Claude sees exactly what it would see from the keyboard.
@@ -49,6 +57,8 @@ Answers are typed into the session's tmux pane, so Claude sees exactly what it w
 - **Diff** — `git diff` against the merge base with the repository's default branch, including uncommitted and
   untracked files.
 
+![The Terminal tab, then the session's change in the Diff tab](media/tabs.gif)
+
 The session header also holds Rename, Open in IDE (with `ide` set) and Close.
 
 ## Starting a session
@@ -57,6 +67,8 @@ The session header also holds Rename, Open in IDE (with `ide` set) and Close.
 session in a new git worktree — an existing branch is checked out as it is, a new one starts from the default
 branch, and the worktree goes in a folder next to the repository ending in `-worktrees`, where it stays after the
 session closes.
+
+![Starting a session from New session; its row appears and turns Working](media/start.gif)
 
 Claude starts in auto mode, in its own tmux session. The repositories Claude ran in before are offered with no
 setup at all; to list your own instead, see [repositories.md](repositories.md).

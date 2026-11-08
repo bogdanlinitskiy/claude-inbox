@@ -2,7 +2,7 @@
 
 Run many Claude Code sessions at once and answer the ones that are waiting, from one window.
 
-![Answering a waiting session in Session Inbox](docs/media/demo.gif)
+![Four sessions in Session Inbox; one starts waiting on a question and is answered in one click](docs/media/hero.gif)
 
 ## What it is
 
@@ -63,10 +63,26 @@ Open the link it prints. Other install paths, the Docker build and what `setup` 
   in it. Sessions on one ticket sit together.
 - **Answers in the app** — option buttons and free text for questions, Allow / Deny for permissions, a message box
   and Interrupt while Claude works.
+
+  ![Answering a question with one of its options](docs/media/answer-option.gif)
+
+  ![Allowing a command Claude asks to run](docs/media/answer-permission.gif)
+
+  ![Answering a question in your own words](docs/media/answer-text.gif)
+
 - **Terminal and diff** — the live tmux pane, and `git diff` against the merge base with the default branch.
+
+  ![The Terminal tab, then the session's change in the Diff tab](docs/media/tabs.gif)
+
 - **New sessions** — pick a repository, a ticket and a first message, optionally in a fresh git worktree.
+
+  ![Starting a session from New session; its row appears and turns Working](docs/media/start.gif)
+
 - **Your own buttons** — chips and a searchable menu that type a prompt into a session or run a shell command in
   its folder.
+
+  ![The Status action runs git status in the session's folder](docs/media/actions.gif)
+
 - **History and alerts** — past conversations from Claude Code's transcripts, searchable and resumable, and a
   desktop notification the moment a session starts waiting.
 

@@ -7,7 +7,3 @@ bin/
 # Editor and personal notes
 .idea/
 CLAUDE.local.md
-
-# Demo recording sources (only the GIF is committed)
-docs/media/demo.mp4
-docs/media/frames/

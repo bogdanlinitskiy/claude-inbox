@@ -3,6 +3,8 @@
 Actions are your own buttons for the selected session. One types a prompt or a slash command into it, the other
 runs a shell command in its folder and shows you the output.
 
+![The Status action runs git status in the session's folder](media/actions.gif)
+
 They live in `~/.config/claude-inbox/config.json`, in two lists:
 
 - `primary_actions` become chips over the reply box, two rows at most; the rest sit behind a "+N more" chip that

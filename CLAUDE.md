@@ -29,7 +29,7 @@ an IDE terminal, so the app can answer it.
   the fitting one, not in the README.
 - `docs/architecture.md` — design: state directory, hook modes, packages, state machine, HTTP API. Code comments
   cite its sections.
-- `docs/media/README.md` — how the README's demo GIF is recorded.
+- `docs/media/README.md` — the demo GIFs and where each is shown.
 
 ## Commands
 

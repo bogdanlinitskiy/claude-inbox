@@ -1,44 +1,17 @@
-# Demo recording
+# Demo recordings
 
-`demo.gif` is the recording at the top of the main README. If you replace it, keep it small: GitHub paints the
-README slowly above a few MB, and a wide GIF is unreadable on a phone.
+Short GIFs, one thing each, so nobody waits through one long recording to reach the part they want. Keep each one
+small: GitHub paints a page slowly above a few MB, and a wide GIF is unreadable on a phone.
 
-What it shows, in about 20 seconds:
+| GIF | Shown in | What it shows |
+|---|---|---|
+| `hero.gif` | README, top | Four sessions across Needs you, Working and Done; one starts waiting on a question and is answered in one click. |
+| `answer-option.gif` | README, guide (Answering) | A question answered with one of its options. |
+| `answer-permission.gif` | README, guide (Answering) | A command Claude asks to run, allowed. |
+| `answer-text.gif` | README, guide (Answering) | A question answered in your own words. |
+| `tabs.gif` | README, guide (Tabs) | The Terminal tab, then the session's change in the Diff tab. |
+| `start.gif` | README, guide (Starting a session) | New session: the row appears, then turns Working. |
+| `actions.gif` | README, actions.md | The Status action and its output. |
 
-1. The list with one session in **Needs you**.
-2. Click it, read the question, answer with an option button.
-3. The row moves to **Working**.
-4. The Terminal tab, scrolling.
-5. The Diff tab.
-
-Target: around 1280px wide, under ~5MB, no audio, no cursor trail.
-
-## Recording it
-
-Record video, then convert — a GIF recorder makes a much bigger file than `ffmpeg` plus `gifski` does.
-
-```bash
-# Wayland
-wf-recorder -g "$(slurp)" -f demo.mp4
-
-# X11 (1280x800 at offset 0,0)
-ffmpeg -f x11grab -framerate 30 -video_size 1280x800 -i :0.0+0,0 demo.mp4
-
-# macOS: Cmd+Shift+5, or
-ffmpeg -f avfoundation -framerate 30 -i 1 demo.mp4
-```
-
-Then convert, frames through gifski:
-
-```bash
-mkdir -p frames && ffmpeg -i demo.mp4 -vf "fps=15,scale=1280:-1:flags=lanczos" frames/%04d.png
-gifski --fps 15 --quality 80 -o docs/media/demo.gif frames/*.png
-```
-
-Without gifski, ffmpeg alone does a decent job with a generated palette:
-
-```bash
-ffmpeg -i demo.mp4 -vf "fps=15,scale=1280:-1:flags=lanczos,split[a][b];[a]palettegen[p];[b][p]paletteuse" docs/media/demo.gif
-```
-
-Keep `demo.mp4` out of git; only the GIF is committed.
+Each is 1280×800, dark, a few seconds long, with a one-second hold on the first and last frame. Waits for Claude
+are cut out.
