@@ -5,6 +5,7 @@
   const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const short = repo => pageConfig.stripPrefix && repo.startsWith(pageConfig.stripPrefix) ? repo.slice(pageConfig.stripPrefix.length) : repo;
   const narrow = matchMedia('(max-width: 880px)');
+  const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)');
   const SEC = 1000;
   const CLOSE_ARM_MS = 4000;
   const TOAST_MS = 6500;
@@ -34,12 +35,14 @@
   };
   const SINCE_LABEL = { working: 'for', done: 'finished', idle: 'idle for' };
   const EMPTY = {
-    all: 'No sessions yet. Start one with New session.',
-    needs: 'Nothing needs you right now.',
-    working: 'No session is working right now.',
-    done: 'No finished or idle sessions.',
-    history: 'No past conversations.',
+    all: { head: 'No sessions yet', body: 'Start one with New session, or run claude-tmux in a terminal.' },
+    needs: { head: 'Nothing is waiting on you', body: 'A session lands here the moment it asks a question or wants a permission.' },
+    working: { head: 'Nothing is running', body: 'A session sits here while Claude is working in it.' },
+    done: { head: 'Nothing has finished', body: 'A session moves here when it stops, and when it goes idle.' },
+    history: { head: 'No past conversations', body: 'A conversation is kept here after its session ends.' },
   };
+  // The diff bar is five blocks wide, like a review tool's.
+  const DIFF_BLOCKS = 5;
   const TAB_LABEL = { terminal: 'Terminal', diff: 'Diff', preview: 'Preview' };
 
   const sessions = new Map();
@@ -53,6 +56,12 @@
   const SESSION_HASH = 'session=';
   let linkedId = null;
   let filter = 'all';
+  // Set by the ticket chip in a row: the rail narrows to one ticket, still split into state blocks, so the
+  // readiness of a ticket with several sessions is read off one view instead of counted off the rail.
+  let ticketFilter = null;
+  // How many live sessions each ticket has, rebuilt per draw. A row shows its ticket as a chip only when the
+  // ticket has more than one, because a chip that narrows the rail to a single row buys nothing.
+  let tixCount = new Map();
   let alertsOn = readSetting('alerts', true);
   let term = null;
   let paneKey = '';
@@ -153,6 +162,10 @@
 
   const needs = s => s.state.needsYou;
   const group = s => (needs(s) ? 'needs' : s.state.kind === 'working' ? 'working' : 'done');
+  // The rail is these three blocks, in this order. Blocked sessions are the reason the app exists, so they
+  // are always the top of the list rather than wherever their ticket happens to sort.
+  const BLOCK = { needs: 'Needs you', working: 'Working', done: 'Done' };
+  const BLOCK_ORDER = ['needs', 'working', 'done'];
 
   function summary(s) {
     const st = s.state;
@@ -168,30 +181,59 @@
     }
   }
 
-  const shown = s => filter === 'all' || group(s) === filter;
+  const shown = s => (filter === 'all' || group(s) === filter)
+    && (!ticketFilter || (s.ticket || '') === ticketFilter);
 
-  // ordered groups the sessions by ticket. An ended session leaves the list; its conversation is in History.
+  // cluster keys a session by ticket, so rows on one ticket sort together. A session without a ticket is its
+  // own cluster and so sorts on its own recency; the prefix keeps those keys out of the ticket space.
+  const cluster = s => s.ticket || `\u0000${s.id}`;
+
+  // ordered splits the shown sessions into the state blocks, in urgency order. Inside a block, rows that share
+  // a ticket sit next to each other, the cluster with the most recent activity first, so several sessions on
+  // one ticket read as a set without a card drawn around them. An ended session leaves the list; its
+  // conversation is in History.
   function ordered() {
-    const rank = s => (needs(s) ? 0 : s.state.kind === 'working' ? 1 : 2);
-    const byTicket = new Map();
-    for (const s of sessions.values()) {
-      if (!shown(s)) continue;
-      const key = s.ticket || '';
-      if (!byTicket.has(key)) byTicket.set(key, []);
-      byTicket.get(key).push(s);
+    const byBlock = new Map(BLOCK_ORDER.map(k => [k, []]));
+    for (const s of sessions.values()) if (shown(s)) byBlock.get(group(s)).push(s);
+    const blocks = [];
+    for (const key of BLOCK_ORDER) {
+      const list = byBlock.get(key);
+      if (!list.length) continue;
+      const latest = new Map();
+      for (const s of list) {
+        const at = parseTime(s.state.changedAt);
+        const k = cluster(s);
+        if (!(latest.get(k) >= at)) latest.set(k, at);
+      }
+      list.sort((a, b) => latest.get(cluster(b)) - latest.get(cluster(a))
+        || (cluster(a) < cluster(b) ? -1 : cluster(a) > cluster(b) ? 1 : 0)
+        || parseTime(b.state.changedAt) - parseTime(a.state.changedAt));
+      blocks.push({ key, label: BLOCK[key], list });
     }
-    return [...byTicket.entries()]
-      .map(([ticket, list]) => {
-        list.sort((a, b) => rank(a) - rank(b) || parseTime(b.state.changedAt) - parseTime(a.state.changedAt));
-        return { ticket, list, rank: rank(list[0]), at: parseTime(list[0].state.changedAt) };
-      })
-      .sort((a, b) => a.rank - b.rank || b.at - a.at);
+    return blocks;
   }
 
   // listed is every row on screen, top to bottom.
   function listed() {
     if (filter === 'history') return pastList();
-    return ordered().flatMap(g => g.list);
+    return ordered().flatMap(b => b.list);
+  }
+
+  // ticketCount counts the live sessions on each ticket, across every state and whatever the rail is
+  // narrowed to, because that is what decides whether a ticket is worth a chip.
+  function ticketCount() {
+    const c = new Map();
+    for (const s of sessions.values()) {
+      const t = s.ticket || '';
+      if (t) c.set(t, (c.get(t) || 0) + 1);
+    }
+    return c;
+  }
+
+  function setTicketFilter(ticket) {
+    ticketFilter = ticket || null;
+    // The selection is left alone: narrowing the rail should not pull the detail pane out from under you.
+    renderList();
   }
 
   function apply(change) {
@@ -248,7 +290,19 @@
     for (const s of sessions.values()) c[group(s)] += 1;
     for (const k of Object.keys(c)) $(`#c-${k}`).textContent = c[k];
     document.title = c.needs ? `(${c.needs}) ${TITLE}` : TITLE;
-    document.querySelectorAll('.filter').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.filter === filter)));
+    // .has colours a filter's count in its own state colour, so the top bar reports the board: a grey row of
+    // zeroes when nothing is live, one amber dot the moment a session blocks.
+    document.querySelectorAll('.filter').forEach(b => {
+      b.setAttribute('aria-pressed', String(b.dataset.filter === filter));
+      b.classList.toggle('has', c[b.dataset.filter] > 0);
+    });
+  }
+
+  // An empty state is either one of the five above, or a passing line such as "Loading…".
+  function emptyHtml(e) {
+    return typeof e === 'string'
+      ? `<div class="empty-list">${esc(e)}</div>`
+      : `<div class="empty-list"><b>${esc(e.head)}</b><span>${esc(e.body)}</span></div>`;
   }
 
   function toneOf(s) {
@@ -259,14 +313,46 @@
   function rowHtml(s) {
     const k = KIND[s.state.kind] || KIND.unknown;
     const text = summary(s);
+    // The stripe and the block heading already say which state this is, so the pill stays only where the kind
+    // is finer than the block - Question, Permission, Idle - and goes where it would repeat the heading.
+    const pill = k.label === BLOCK[group(s)] ? '' : `<span class="state ${k.cls}">${k.label}</span>`;
+    const branch = s.branch ? `<span class="row-branch" title="${esc(s.branch)}">${esc(s.branch)}</span>` : '';
+    // A span, not a button: a button inside a button is invalid. The rail's click handler reads the attribute,
+    // and the keyboard reaches the same thing with t on the selected row.
+    const tix = s.ticket && tixCount.get(s.ticket) > 1
+      ? `<span class="row-tix" data-ticket="${esc(s.ticket)}" title="Show only ${esc(s.ticket)}">${esc(s.ticket)}</span>`
+      : '';
     const flag = s.delivery === 'failed' ? '<span class="row-flag">Not sent</span>' : '';
     const tag = (s.discovered ? `<span class="row-tag" title="Started outside the app${s.inTmux ? ', in tmux' : ''}">${s.inTmux ? 'yours · tmux' : 'yours'}</span>` : '')
       + (s.worktree ? `<span class="row-tag" title="${esc(s.dir)}">worktree</span>` : '')
       + (s.state.fromScreen ? '<span class="row-tag" title="No hook reported this; the app read it from the terminal">from screen</span>' : '');
     return `<button type="button" class="row ${toneOf(s)}" data-id="${esc(s.id)}" aria-current="${s.id === selectedId}">
-      <span class="row-top"><span class="repo">${esc(short(s.repo) || 'unknown folder')}</span><span class="state ${k.cls}">${k.label}</span>${flag}${tag}<span class="age">${since(s.state.changedAt)}</span></span>
+      <span class="row-top"><span class="repo">${esc(short(s.repo) || 'unknown folder')}</span>${branch}${pill}${flag}${tag}${tix}<span class="age">${since(s.state.changedAt)}</span></span>
       <span class="row-text">${esc(text)}</span>
     </button>`;
+  }
+
+  // scopeHtml is the ticket view's readout: how that ticket's sessions sit across the three states, stated
+  // rather than counted off the rows. It counts every session on the ticket, not only the filtered ones.
+  function scopeHtml() {
+    const n = { needs: 0, working: 0, done: 0 };
+    let total = 0;
+    for (const s of sessions.values()) {
+      if ((s.ticket || '') !== ticketFilter) continue;
+      n[group(s)] += 1;
+      total += 1;
+    }
+    const mix = [
+      n.needs ? `${n.needs} waiting` : '',
+      n.working ? `${n.working} working` : '',
+      n.done ? `${n.done} done` : '',
+    ].filter(Boolean).join(' \u00b7 ');
+    return `<div class="scope">
+      <span class="tid">${esc(ticketFilter)}</span>
+      <span class="scope-n">${total} ${total === 1 ? 'session' : 'sessions'}</span>
+      <span class="scope-mix">${esc(mix)}</span>
+      <button type="button" class="scope-x" data-act="clear-ticket">Clear</button>
+    </div>`;
   }
 
   function renderList() {
@@ -275,20 +361,21 @@
       return;
     }
     const list = $('#list');
-    const groups = ordered();
-    if (!groups.length) {
-      list.innerHTML = `<div class="empty-list">${esc(EMPTY[filter])}</div>`;
+    tixCount = ticketCount();
+    const blocks = ordered();
+    const scope = ticketFilter ? scopeHtml() : '';
+    if (!blocks.length) {
+      const text = ticketFilter ? `Nothing on ${ticketFilter} matches this filter.` : EMPTY[filter];
+      list.innerHTML = scope + emptyHtml(text);
       return;
     }
-    list.innerHTML = groups.map(g => {
-      // Sessions without a ticket are unrelated, so no single title speaks for the group.
-      const titled = g.ticket ? g.list.find(s => s.title) : null;
-      const n = g.list.length;
-      return `<section class="group" aria-label="${esc(g.ticket || 'No ticket')}">
-        <div class="g-head"><span class="tid">${esc(g.ticket || 'No ticket')}</span><span class="g-title">${esc(titled?.title || '')}</span><span class="g-count">${n} ${n === 1 ? 'session' : 'sessions'}</span></div>
-        ${g.list.map(rowHtml).join('')}
-      </section>`;
-    }).join('');
+    // One block needs no heading: the pressed filter already names it. The ticket view keeps every heading,
+    // because the split across states is the whole point of that view.
+    const heads = blocks.length > 1 || !!ticketFilter;
+    list.innerHTML = scope + blocks.map(b => `<section class="group" aria-label="${esc(b.label)}">
+        ${heads ? `<div class="g-head g-${b.key}"><span class="g-label">${esc(b.label)}</span><span class="g-count">${b.list.length}</span></div>` : ''}
+        ${b.list.map(rowHtml).join('')}
+      </section>`).join('');
   }
 
   function renderDetail() {
@@ -307,7 +394,7 @@
       $('#tabs').innerHTML = '';
       $('#reply').innerHTML = '';
       replyKey = '';
-      $('#pane').innerHTML = `<div class="empty-detail">Pick a session on the left, or start one with New session.</div>`;
+      $('#pane').innerHTML = `<div class="empty-detail"><b>Nothing selected</b><span>Pick a session on the left, or start one with New session.</span></div>`;
       return;
     }
     detail.classList.remove('empty');
@@ -375,18 +462,21 @@
     const closeLabel = s.discovered ? 'Hide' : closeArmed === s.id ? 'Click again to close' : 'Close session';
     return `
       <button type="button" class="btn small back" data-act="back">← All sessions</button>
-      <div class="d-title"><span class="tid${s.ticket ? ' ticket' : ''}">${esc(s.ticket || 'No ticket')}</span>${titleHtml(s)}</div>
-      <div class="d-tools">
-        ${pageConfig.secondaryActions.length ? '<button type="button" class="btn small" data-act="actions" aria-haspopup="listbox" title="Actions (.)">Actions ▾</button><span class="act-sep"></span>' : ''}
-        <button type="button" class="btn small" data-act="rename">Rename</button>
-        ${pageConfig.ide ? '<button type="button" class="btn small" data-act="ide">Open in IDE</button>' : ''}
-        <button type="button" class="btn small${s.discovered ? '' : ' danger'}${closeArmed === s.id ? ' armed' : ''}" data-act="close">${closeLabel}</button>
+      <div class="d-title">
+        <span class="tid${s.ticket ? ' ticket' : ''}">${esc(s.ticket || 'No ticket')}</span>${titleHtml(s)}
+        <span class="state ${k.cls}">${k.label}</span>
+        <div class="d-tools">
+          ${pageConfig.secondaryActions.length ? '<button type="button" class="btn small" data-act="actions" aria-haspopup="listbox" title="Actions (.)">Actions ▾</button><span class="act-sep"></span>' : ''}
+          <button type="button" class="btn small" data-act="rename">Rename</button>
+          ${pageConfig.ide ? '<button type="button" class="btn small" data-act="ide">Open in IDE</button>' : ''}
+          <button type="button" class="btn small${s.discovered ? '' : ' danger'}${closeArmed === s.id ? ' armed' : ''}" data-act="close">${closeLabel}</button>
+        </div>
       </div>
       <div class="d-meta">
-        <span class="state ${k.cls}">${k.label} · ${sinceLabel} ${since(s.state.changedAt)}</span>
-        ${s.branch ? `<span class="mono"${s.discovered ? '' : ` title="tmux ${esc(s.tmuxName)}"`}>${esc(s.branch)}</span>` : ''}
-        ${s.worktree ? `<span class="mono" title="${esc(s.dir)}">worktree</span>` : ''}
+        ${s.branch ? `<span${s.discovered ? '' : ` title="tmux ${esc(s.tmuxName)}"`}>${esc(s.branch)}</span>` : ''}
+        ${s.worktree ? `<span title="${esc(s.dir)}">worktree</span>` : ''}
         ${s.discovered ? `<span>started outside the app${s.inTmux ? ', in tmux' : ', not in tmux'}</span>` : ''}
+        <span>${esc(sinceLabel)} ${since(s.state.changedAt)}</span>
         <span>started ${since(s.createdAt)} ago</span>
         ${s.state.permissionMode && s.state.permissionMode !== 'auto' ? `<span>${esc(s.state.permissionMode)} mode</span>` : ''}
       </div>`;
@@ -410,21 +500,12 @@
     const input = $('#reply-input', reply);
     if (!input) return;
     input.value = drafts.get(s.id) || '';
-    fitReply(input);
     if (!hadFocus) return;
     input.focus();
     if (caret.value === input.value) {
       input.setSelectionRange(caret.start, caret.end);
       input.scrollTop = caret.scroll;
     }
-  }
-
-  // fitReply grows the reply box with its text; CSS caps the height, past which it scrolls. A box not laid out
-  // yet measures 0 and keeps its natural height.
-  function fitReply(input) {
-    input.style.height = 'auto';
-    if (!input.scrollHeight) return;
-    input.style.height = `${input.scrollHeight + input.offsetHeight - input.clientHeight}px`;
   }
 
   // A free-text answer to a question goes into a one-line field on Claude's screen, so it cannot take line breaks.
@@ -444,8 +525,18 @@
     return '';
   }
 
+  // The ask header reads as a sentence: who is asking, then the tool as a quiet mono tag, then how long it
+  // has been waiting — the first thing you want when you come back to the screen. askOf is the session the
+  // panel is being built for; replyHtml and viewOnlyHtml set it, so every ask() gets the elapsed label
+  // without threading it through a dozen call sites.
+  let askOf = null;
+
   function ask(kindClass, label, body) {
-    return `<div class="ask ${kindClass}"><div class="ask-kind">${esc(label)}</div>${body}</div>`;
+    const [who, ...rest] = String(label).split(' · ');
+    const tag = rest.join(' · ');
+    const ago = askOf ? `<span class="ago">${esc(SINCE_LABEL[askOf.state.kind] || 'waiting')} ${since(askOf.state.changedAt)}</span>` : '';
+    const tool = tag ? `<span class="tool">${esc(tag)}</span>` : '';
+    return `<div class="ask ${kindClass}"><div class="ask-head"><span class="who">${esc(who)}</span>${tool}${ago}</div>${body}</div>`;
   }
 
   // locked: an answer to this state is on its way, or found nothing left to answer; a second click would land in
@@ -462,6 +553,7 @@
 
   // viewOnlyHtml shows what a session outside tmux waits on; the app cannot type into it.
   function viewOnlyHtml(s) {
+    askOf = s;
     const st = s.state;
     const note = '<p class="ask-note">This session does not run in tmux, so the app cannot type into it. Answer it where it runs.</p>';
     switch (st.kind) {
@@ -484,6 +576,7 @@
   }
 
   function replyHtml(s) {
+    askOf = s;
     if (!s.inTmux) return viewOnlyHtml(s);
     const st = s.state;
     const delivery = deliveryHtml(s);
@@ -1011,6 +1104,23 @@
     return '';
   }
 
+  // Five blocks per file, the way a review tool draws them: the shape of a change reads before anything is
+  // opened. A file that added and deleted keeps at least one block of each, so 200 added and 1 deleted still
+  // reports the deletion. Nothing is drawn for a binary or uncounted file, which has no counts to split.
+  function diffBar(f) {
+    if (f.binary || f.uncounted) return '';
+    const total = f.added + f.deleted;
+    let green = total ? Math.round((f.added / total) * DIFF_BLOCKS) : 0;
+    if (f.added && green === 0) green = 1;
+    if (f.deleted && green === DIFF_BLOCKS) green = DIFF_BLOCKS - 1;
+    const cells = [];
+    for (let i = 0; i < DIFF_BLOCKS; i++) {
+      cells.push(`<i class="${!total ? 'n' : i < green ? 'a' : 'd'}"></i>`);
+    }
+    // The counts next to it already say this in words.
+    return `<span class="bar" aria-hidden="true">${cells.join('')}</span>`;
+  }
+
   function diffHtml(d) {
     d.files = d.files || [];
     const add = d.files.reduce((n, f) => n + f.added, 0);
@@ -1022,7 +1132,7 @@
     // come last and have none. A section cut off by the size cap leaves the files after it without one.
     const sections = d.patch ? d.patch.split(/^(?=diff --git )/m).filter(Boolean) : [];
     const files = d.files.map((f, i) => {
-      const summary = `<span class="path">${esc(f.path)}</span>${fileTag(f)}${f.binary || f.uncounted ? '' : `<span class="add">+${f.added}</span><span class="del">−${f.deleted}</span>`}`;
+      const summary = `<span class="path">${esc(f.path)}</span>${fileTag(f)}${f.binary || f.uncounted ? '' : `<span class="add">+${f.added}</span><span class="del">−${f.deleted}</span>`}${diffBar(f)}`;
       const section = f.untracked ? '' : sections[i];
       if (!section) return `<div class="file">${summary}</div>`;
       const open = openDiffFiles.has(f.path) ? ' open' : '';
@@ -1042,15 +1152,28 @@
 
   /* ---------- Selection and actions ---------- */
 
+  // Switching sessions cross-fades the detail pane, so it is visible that the pane changed under you and
+  // which row you landed on. The callback runs on the next frame, so everything that reads the drawn rows
+  // goes inside it. A browser without view transitions, or a reader who asked for less motion, just swaps.
+  function withTransition(draw) {
+    if (reducedMotion.matches || !document.startViewTransition) {
+      draw();
+      return;
+    }
+    document.startViewTransition(draw);
+  }
+
   function select(id, show = true) {
     selectedId = id;
     closeArmed = null;
     closeMenu();
     // The address names the selected session, so a link (#session=<id>) to another one is a change the page sees.
     history.replaceState(null, '', `#${SESSION_HASH}${encodeURIComponent(id)}`);
-    render();
-    const row = document.querySelector(`.row[data-id="${CSS.escape(id)}"]`);
-    if (row) row.scrollIntoView({ block: 'nearest' });
+    withTransition(() => {
+      render();
+      const row = document.querySelector(`.row[data-id="${CSS.escape(id)}"]`);
+      if (row) row.scrollIntoView({ block: 'nearest' });
+    });
     if (show && narrow.matches) $('#main').classList.add('show-detail');
   }
 
@@ -1148,6 +1271,16 @@
   }
 
   $('#list').addEventListener('click', e => {
+    // The chip and the Clear button sit inside the row, so they are read before the row itself.
+    const tix = e.target.closest('[data-ticket]');
+    if (tix) {
+      setTicketFilter(tix.dataset.ticket);
+      return;
+    }
+    if (e.target.closest('[data-act="clear-ticket"]')) {
+      setTicketFilter(null);
+      return;
+    }
     const row = e.target.closest('.row');
     if (row) select(row.dataset.id);
   });
@@ -1156,7 +1289,12 @@
     const b = e.target.closest('.filter');
     if (!b) return;
     filter = b.dataset.filter;
-    if (filter === 'history') loadPast();
+    // History is past conversations, which the ticket view does not narrow; leaving it set would reapply it
+    // silently on the way back.
+    if (filter === 'history') {
+      ticketFilter = null;
+      loadPast();
+    }
     renderCounts();
     renderList();
   });
@@ -1201,9 +1339,9 @@
     if (s && input) submitText(s, input.value);
   });
 
+  // The reply box grows with its text through field-sizing: content in app.css, so nothing measures it here.
   $('#detail').addEventListener('input', e => {
     if (e.target.id !== 'reply-input') return;
-    fitReply(e.target);
     if (selectedId) drafts.set(selectedId, e.target.value);
   });
 
@@ -1249,7 +1387,9 @@
   const overlay = $('#overlay');
 
   async function openModal() {
-    overlay.hidden = false;
+    // A native <dialog>: the browser owns the backdrop, the focus trap, Esc, and the inertness of the page
+    // behind it, and app.css animates it in and out with @starting-style.
+    overlay.showModal();
     $('#ns-error').hidden = true;
     const select = $('#ns-repo');
     if (!repoList) {
@@ -1277,9 +1417,9 @@
     select.focus();
   }
 
+  // showModal remembers what had focus and gives it back on close, so nothing needs refocusing here.
   function closeModal() {
-    overlay.hidden = true;
-    $('#new-session').focus();
+    if (overlay.open) overlay.close();
   }
 
   function showFormError(text) {
@@ -1374,7 +1514,7 @@
           <div class="g-head"><span class="g-title">${day}</span><span class="g-count">${list.length} ${list.length === 1 ? 'conversation' : 'conversations'}</span></div>
           ${list.map(pastRowHtml).join('')}
         </section>`).join('')
-      : `<div class="empty-list">${esc(empty)}</div>`;
+      : emptyHtml(empty);
   }
 
   // dayGroups splits conversations, latest first, into Today, Yesterday, This week and Older, by local days.
@@ -1424,6 +1564,7 @@
       const info = await api('POST', `/api/conversation/${encodeURIComponent(c.id)}/resume`);
       past.delete(c.id);
       filter = 'all';
+      ticketFilter = null;
       apply({ session: info, live: false });
       select(info.id);
       toast(`Resumed in ${info.tmuxName}`, 'Running in tmux. It shows up here when it needs you.');
@@ -1442,10 +1583,7 @@
   /* ---------- Keyboard ---------- */
 
   document.addEventListener('keydown', e => {
-    if (!overlay.hidden) {
-      if (e.key === 'Escape') closeModal();
-      return;
-    }
+    if (overlay.open) return;  // the dialog handles its own Esc.
     const tag = e.target.tagName;
     if (tag === 'INPUT' || tag === 'SELECT' || tag === 'TEXTAREA') {
       if (e.key === 'Escape' && e.target.id === 'reply-input') e.target.blur();
@@ -1468,6 +1606,10 @@
     } else if (e.key === '.' && pageConfig.secondaryActions.length && sessions.has(selectedId)) {
       e.preventDefault();
       openMenu(SECONDARY, document.querySelector('[data-act="actions"]'));
+    } else if (e.key === 't' && sessions.get(selectedId)?.ticket) {
+      // The ticket chip is not focusable, so this is how the keyboard narrows the rail to one ticket.
+      e.preventDefault();
+      setTicketFilter(ticketFilter ? null : sessions.get(selectedId).ticket);
     } else if (/^[1-9]$/.test(e.key)) {
       // A digit only moves to the option; Enter on it picks it, so a stray key never answers.
       const opt = document.querySelector(`#reply .opt[data-opt="${Number(e.key) - 1}"]`);
@@ -1548,14 +1690,57 @@
     render();
   }
 
+  /* ---------- Theme ---------- */
+
+  // tokens.css is written with light-dark(), so the operating system decides until you pick a side. A choice
+  // sets data-theme, which wins in both directions, and is remembered. An embedding page still overrides it.
+  const THEME_CYCLE = { system: 'dark', dark: 'light', light: 'system' };
+  const THEME_LABEL = { system: 'Auto', dark: 'Dark', light: 'Light' };
+  // In a frame the host owns the theme. A choice stored for the standalone page says nothing about the page
+  // we are embedded in, and the toggle is hidden there, so it could not be corrected from inside the frame.
+  const inFrame = window.self !== window.top;
+  let themeChoice = 'system';
+  if (!inFrame) {
+    try { themeChoice = localStorage.getItem('inbox-theme') || 'system'; } catch { /* private window */ }
+  }
+  if (!(themeChoice in THEME_CYCLE)) themeChoice = 'system';
+
+  // The host answers home:theme? a moment after load, so painting first would show the wrong theme and then
+  // flip. Hold the page until it answers; after THEME_WAIT_MS, show it at the system theme rather than
+  // leaving a blank frame when no host answers at all.
+  const THEME_WAIT_MS = 250;
+  function revealTheme() {
+    document.documentElement.classList.remove('theme-wait');
+  }
+  if (inFrame) {
+    document.documentElement.classList.add('theme-wait');
+    setTimeout(revealTheme, THEME_WAIT_MS);
+  }
+
+  function applyTheme() {
+    if (themeChoice === 'system') delete document.documentElement.dataset.theme;
+    else document.documentElement.dataset.theme = themeChoice;
+    const btn = $('#theme');
+    btn.textContent = THEME_LABEL[themeChoice];
+    btn.title = themeChoice === 'system' ? 'Theme: follows your system' : `Theme: always ${themeChoice}`;
+  }
+
+  $('#theme').addEventListener('click', () => {
+    themeChoice = THEME_CYCLE[themeChoice];
+    try { localStorage.setItem('inbox-theme', themeChoice); } catch { /* private window */ }
+    applyTheme();
+  });
+  applyTheme();
+
   // Framed by the embed origin, the page follows that page's theme and lets its background show through. Messages
   // from any other origin are ignored. The message names (home:theme?, home:theme) are the embedder's protocol.
   function followEmbedder(origin) {
-    if (!origin || window.self === window.top) return;
+    if (!origin || !inFrame) return;
     document.documentElement.classList.add('framed');
     addEventListener('message', e => {
       if (e.origin !== origin || e.data?.type !== 'home:theme') return;
       document.documentElement.dataset.theme = e.data.theme === 'light' ? 'light' : 'dark';
+      revealTheme();
     });
     window.parent.postMessage({ type: 'home:theme?' }, origin);
   }

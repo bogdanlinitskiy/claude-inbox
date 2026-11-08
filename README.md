@@ -1,17 +1,19 @@
 # Session Inbox
 
-A local web app for running many Claude Code sessions at once. It lists every session on your machine, grouped by
-ticket, puts the ones waiting on a question or a permission at the top, and lets you answer them, watch their live
-terminal and read their diff, all in one window. A desktop alert fires when a session starts waiting.
+A local web app for running many Claude Code sessions at once. It lists every session on your machine with the
+ones waiting on a question or a permission at the top, and lets you answer them, watch their live terminal and
+read their diff, all in one window. A desktop alert fires when a session starts waiting.
 
 Claude Code keeps running in a real terminal: each session runs inside tmux, and the app types your answers into
 its pane. You never have to use tmux yourself.
 
 ## Features
 
-- **Inbox**: sessions grouped by ticket, waiting ones first, each with its state (Working, Question, Permission,
-  Done) and how long it has been in it. A waiting session shows its question, or the command it wants to run,
-  right in the list.
+- **Inbox**: three blocks — Needs you, Working, Done — so everything blocked is the top of the list, each row
+  with its repository, branch, state and how long it has been in it. A waiting session shows its question, or the
+  command it wants to run, right in the list. Sessions on one ticket sit together inside their block; click the
+  ticket on a row (or press <kbd>t</kbd>) to narrow the list to that ticket and see how its sessions are split
+  across the three states.
 - **Answer from the app**: option buttons and free text for questions, Allow / Deny for permissions, a message box
   and Interrupt for a working session, and Trust / Don't trust for a new folder.
 - **Terminal tab**: the session's live tmux pane, readable, scrollable and typeable.
@@ -110,7 +112,7 @@ Nothing is required. To change the defaults, create `~/.config/claude-inbox/conf
 | `primary_actions`, `secondary_actions` (file only) | Buttons for the selected session: chips over the reply box, and the searchable Actions menu; see below. |
 | `ide` / `--ide` | Command that opens a folder in your IDE, e.g. `code`. Empty (default) hides the button. |
 | `cheatsheet` / `--cheatsheet` | URL the Cheat sheet button opens. Empty (default) hides the button. |
-| `ticket_pattern` / `--ticket-pattern` | Go regexp that finds the ticket id in a git branch name; sessions are grouped by it. Default `[A-Z][A-Z0-9]+-\d+` (Jira style); empty finds none. |
+| `ticket_pattern` / `--ticket-pattern` | Go regexp that finds the ticket id in a git branch name; it names the session and groups its rows in the list. Default `[A-Z][A-Z0-9]+-\d+` (Jira style); empty finds none. |
 | `strip_prefix` / `--strip-prefix` | Prefix left out of repository names in the list and in tmux session names, e.g. `acme-` turns `acme-wallet` into `wallet`. |
 | `embed_origin` / `--embed-origin` | The one other origin, `scheme://host[:port]`, that may show the app in a frame, e.g. a local dashboard. Empty (default): no other page can frame it. See [Embedding](#embedding). |
 

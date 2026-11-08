@@ -1,50 +1,84 @@
-/* Design tokens: the fonts and the two token blocks (dark by default, light under data-theme="light"). app.css
-   uses only these names. The fonts ship with the app (vendor/fonts), so the page loads nothing from the internet. */
+/* Design tokens. The fonts ship with the app (vendor/fonts), so the page loads nothing from the internet.
+
+   One token block, not two: every colour is written with light-dark(), and `color-scheme` on :root decides
+   which half applies. That means the app follows the operating system by default, and an explicit choice —
+   the top-bar toggle, or a theme posted by an embedding page — wins by setting data-theme.
+
+   Colours are in OKLCH: lightness there is perceptual, so the surface steps are evenly spaced to the eye and
+   the light theme is a designed palette rather than an inversion of the dark one.
+
+   The rule the palette follows: state colour is the only saturated colour in normal use, because the whole
+   job of this app is to show which session is blocked. --accent is identity, and appears on the mark and on
+   one button per view. app.css uses only the names defined here. */
 @import url("vendor/fonts/fonts.css");
 
 :root {
-  --s1: 4px; --s2: 8px; --s3: 12px; --s4: 16px; --s5: 24px; --s6: 32px;
-  --r-sm: 8px; --r-md: 10px; --r-lg: 18px; --r-xl: 22px; --r-pill: 999px;
-  --t-xs: 12px; --t-sm: 13px; --t-md: 13.5px; --t-lg: 16px; --t-xl: 20px; --t-num: 40px;
-  --font-ui: "Plus Jakarta Sans", system-ui, "Ubuntu", sans-serif;
-  --font-display: "Space Grotesk", "Plus Jakarta Sans", system-ui, sans-serif;
-  --font-mono: "JetBrains Mono", "DejaVu Sans Mono", ui-monospace, monospace;
-  --nav-wide: 240px; --nav-rail: 68px;
-  --blur: blur(22px) saturate(150%);
-  --grad: linear-gradient(135deg, #ff4fd8, #a855f7 50%, #22d3ee);
-  --grad-soft: linear-gradient(135deg, rgb(255 79 216 / 32%), rgb(168 85 247 / 22%) 55%, rgb(34 211 238 / 14%));
-  --grad-shadow: 0 8px 26px -8px rgb(255 79 216 / 80%);
+  color-scheme: light dark;
 
-  /* Dark, the default. Text colors (--fg, --muted, --faint) are at least 4.5:1 on --bg and on --panel over it;
+  /* Space, on a 4px grid. */
+  --s1: 4px; --s2: 8px; --s3: 12px; --s4: 16px; --s5: 24px; --s6: 32px;
+
+  /* Radius by role: a control is not a panel. */
+  --r-control: 9px; --r-panel: 14px; --r-pill: 999px;
+
+  /* Type. Mono is the structural voice of the app — ids, branches, times, paths, counts and the name
+     itself — because this is a window onto tmux. Space Grotesk is gone: faces and files both, so it is off
+     the wire and out of the binary. */
+  --t-xs: 11.5px; --t-sm: 12.8px; --t-md: 13.5px; --t-lg: 15px; --t-xl: 19px; --t-num: 34px;
+  --font-ui: "Plus Jakarta Sans", system-ui, "Ubuntu", sans-serif;
+  --font-display: "Plus Jakarta Sans", system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", "DejaVu Sans Mono", ui-monospace, monospace;
+
+  --nav-wide: 240px; --nav-rail: 68px;
+
+  /* Ground and surfaces: four steps of one violet-leaning ink. Each step is a role.
+     Solid, not stacked translucency, so a tinted row keeps the tint it was given. */
+  --bg:        light-dark(oklch(96.5% 0.008 290), oklch(14.5% 0.018 290));
+  --surface-1: light-dark(oklch(100%  0     0  ), oklch(18%   0.019 290));
+  --surface-2: light-dark(oklch(98%   0.006 290), oklch(21.5% 0.021 290));
+  --surface-3: light-dark(oklch(94.5% 0.012 290), oklch(26%   0.023 290));
+  --line:      light-dark(oklch(30% 0.04 290 / 13%), oklch(100% 0 0 / 10%));
+  --line-2:    light-dark(oklch(30% 0.04 290 / 24%), oklch(100% 0 0 / 17%));
+
+  /* Text. --fg, --muted and --faint are all at least 4.5:1 on --bg and on --surface-1.
      --deco is for marks that are not text. */
-  --bg: #0a0814; --panel: rgb(255 255 255 / 5%); --panel-solid: #171328; --raised: rgb(255 255 255 / 7.5%);
-  --sunk: rgb(255 255 255 / 6%); --active: rgb(255 255 255 / 9%); --line: rgb(255 255 255 / 10%); --line-2: rgb(255 255 255 / 16%);
-  --fg: #f6f3ff; --muted: #bdb7d6; --faint: #918bad; --deco: rgb(255 255 255 / 22%);
-  --ink: #f6f3ff; --ink-fg: #140f24;
-  --up: #4ade80; --up-bg: rgb(74 222 128 / 13%); --wait: #fbbf24; --wait-bg: rgb(251 191 36 / 13%);
-  --fail: #ff5c8a; --fail-bg: rgb(255 92 138 / 15%);
-  --accent: #ff6ad5; --accent-bg: rgb(255 106 213 / 15%); --violet: #c4b5fd; --violet-bg: rgb(167 139 250 / 15%); --teal: #22d3ee;
-  --log-bg: rgb(0 0 0 / 32%); --log-fg: #e9e4f7;
-  --mesh: radial-gradient(900px 640px at 6% -10%, rgb(168 85 247 / 36%), transparent 60%),
-    radial-gradient(820px 620px at 100% -4%, rgb(255 79 216 / 28%), transparent 60%),
-    radial-gradient(760px 520px at 60% 112%, rgb(34 211 238 / 18%), transparent 60%);
-  --sheen: inset 0 1px 0 rgb(255 255 255 / 7%); --glow: 0.55; --pop-shadow: 0 30px 80px rgb(0 0 0 / 60%);
-  --ring: #1a1530;
-  color-scheme: dark;
+  --fg:    light-dark(oklch(21% 0.03 290), oklch(96% 0.008 290));
+  --muted: light-dark(oklch(44% 0.03 290), oklch(78% 0.015 290));
+  --faint: light-dark(oklch(54% 0.025 290), oklch(64% 0.018 290));
+  --deco:  light-dark(oklch(30% 0.04 290 / 30%), oklch(100% 0 0 / 22%));
+
+  /* State. The four colours the app is really about. */
+  --wait: light-dark(oklch(52% 0.13 70),  oklch(81% 0.15 80));
+  --work: light-dark(oklch(50% 0.12 240), oklch(80% 0.11 225));
+  --done: light-dark(oklch(46% 0.13 155), oklch(79% 0.15 158));
+  --fail: light-dark(oklch(52% 0.19 18),  oklch(72% 0.18 18));
+  --info: light-dark(oklch(48% 0.11 215), oklch(80% 0.1 205));
+
+  /* Identity. */
+  --accent:     light-dark(oklch(50% 0.2 340), oklch(74% 0.19 340));
+  --accent-ink: light-dark(oklch(99% 0 0),     oklch(16% 0.02 340));
+
+  /* Inverted surface, for toasts. */
+  --ink:    light-dark(oklch(21% 0.03 290), oklch(96% 0.008 290));
+  --ink-fg: light-dark(oklch(98% 0.005 290), oklch(16% 0.02 290));
+
+  /* The terminal is dark in both themes. xterm reads these through getComputedStyle and needs a plain
+     colour it can parse, so they must not go through light-dark(). */
+  --term-bg: #16121f;
+  --term-fg: #e9e4f7;
+  --log-bg: var(--term-bg);
+  --log-fg: var(--term-fg);
+
+  /* Elevation: a hairline of light along the top edge, a soft shadow below. */
+  --lift-1: inset 0 1px 0 light-dark(oklch(100% 0 0 / 90%), oklch(100% 0 0 / 6%));
+  --lift-2: inset 0 1px 0 light-dark(oklch(100% 0 0 / 90%), oklch(100% 0 0 / 7%)),
+            0 12px 32px -12px light-dark(oklch(30% 0.06 290 / 22%), oklch(0% 0 0 / 60%));
+  --pop-shadow: 0 24px 60px -20px light-dark(oklch(30% 0.06 290 / 30%), oklch(0% 0 0 / 70%));
+  --scrim: light-dark(oklch(30% 0.04 290 / 35%), oklch(8% 0.02 290 / 60%));
+
+  --blur: blur(14px) saturate(140%);
 }
-:root[data-theme="light"] {
-  --bg: #f1edfb; --panel: rgb(255 255 255 / 66%); --panel-solid: #ffffff; --raised: rgb(255 255 255 / 80%);
-  --sunk: rgb(160 60 200 / 7%); --active: rgb(160 60 200 / 10%); --line: rgb(110 60 160 / 14%); --line-2: rgb(110 60 160 / 24%);
-  --fg: #1d1530; --muted: #54496e; --faint: #6d628a; --deco: rgb(110 60 160 / 28%);
-  --ink: #1d1530; --ink-fg: #f6f3ff;
-  --up: #13804a; --up-bg: rgb(19 128 74 / 11%); --wait: #a35600; --wait-bg: rgb(230 150 20 / 16%);
-  --fail: #d02a5a; --fail-bg: rgb(208 42 90 / 10%);
-  --accent: #c0269c; --accent-bg: rgb(192 38 156 / 10%); --violet: #7c3aed; --violet-bg: rgb(124 58 237 / 10%); --teal: #0e7490;
-  --log-bg: #1d1530; --log-fg: #e9e4f7;
-  --mesh: radial-gradient(900px 640px at 6% -10%, rgb(168 85 247 / 24%), transparent 60%),
-    radial-gradient(820px 620px at 100% -4%, rgb(255 79 216 / 22%), transparent 60%),
-    radial-gradient(760px 520px at 60% 112%, rgb(34 211 238 / 18%), transparent 60%);
-  --sheen: inset 0 1px 0 rgb(255 255 255 / 80%), 0 8px 30px -12px rgb(90 40 140 / 18%); --glow: 0.3; --pop-shadow: 0 30px 80px rgb(90 40 140 / 22%);
-  --ring: #f4effc;
-  color-scheme: light;
-}
+
+/* An explicit choice overrides the operating system, in both directions. */
+:root[data-theme="dark"]  { color-scheme: dark; }
+:root[data-theme="light"] { color-scheme: light; }

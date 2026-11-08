@@ -5,5 +5,4 @@ Vendored on 2026-10-18 from the npm registry; tarballs checked against the publi
 Fonts vendored on 2026-11-07 the same way (SIL Open Font License 1.1, fonts/LICENSE-*); every *-wght-normal.woff2
 subset, and fonts/fonts.css generated from each package's index.css with the family names tokens.css uses.
 @fontsource-variable/plus-jakarta-sans 5.3.0 sha512-/l/4r0yyWK9JzAlmA0LiYgGgmJe/Gswt4jTJEzr5QhJfwMbvJZDmYWyW0M4X7yCK69BajMVlV/Lx8g7WDc1+sw==
-@fontsource-variable/space-grotesk 5.3.0     sha512-2IxmvfB08i9vnGB3Ym/AXvhRE+8XOjWMXIyDum03c+tPwH0FUoMNQfGpU8NXPxjbws0Vvss3AH0Zqt4oJBBAdw==
 @fontsource-variable/jetbrains-mono 5.3.0    sha512-F32xpS2NsGYoQi2ADSkKTgpJj7ozajsGgDJ8woTnqjmIB+dxDIqImjl4pXZVEExu8UFZ2ndhmX18EBS/hdz3Lw==

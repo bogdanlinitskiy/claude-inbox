@@ -23,8 +23,8 @@
     <nav class="filters" aria-label="Filter sessions">
       <button type="button" class="filter" data-filter="all" aria-pressed="true">All <b id="c-all">0</b></button>
       <button type="button" class="filter f-needs" data-filter="needs" aria-pressed="false">Needs you <b id="c-needs">0</b></button>
-      <button type="button" class="filter" data-filter="working" aria-pressed="false">Working <b id="c-working">0</b></button>
-      <button type="button" class="filter" data-filter="done" aria-pressed="false">Done <b id="c-done">0</b></button>
+      <button type="button" class="filter f-working" data-filter="working" aria-pressed="false">Working <b id="c-working">0</b></button>
+      <button type="button" class="filter f-done" data-filter="done" aria-pressed="false">Done <b id="c-done">0</b></button>
       <button type="button" class="filter" data-filter="history" aria-pressed="false">History <b id="c-history">0</b></button>
     </nav>
     <div class="top-actions">
@@ -36,9 +36,11 @@
         <span><kbd>Enter</kbd> type a reply</span>
         <span><kbd>Shift</kbd>+<kbd>Enter</kbd> new line</span>
         <span><kbd>Esc</kbd> leave the input</span>
+        <span><kbd>t</kbd> only this ticket</span>
         <span><kbd>.</kbd> actions menu</span>
       </div>
       <a class="btn" id="cheatsheet" href="/cheatsheet" target="_blank" rel="noopener" hidden>Cheat sheet</a>
+      <button type="button" class="btn theme-btn" id="theme" title="Theme: follows your system until you pick one">Auto</button>
       <button type="button" class="btn" id="alerts" aria-pressed="true">Alerts on</button>
       <button type="button" class="btn primary" id="new-session">New session</button>
     </div>
@@ -60,8 +62,8 @@
 <div class="toasts" id="toasts" aria-live="polite"></div>
 <div class="act-menu" id="act-menu" hidden></div>
 
-<div class="overlay" id="overlay" hidden>
-  <form class="modal" id="new-form" autocomplete="off">
+<dialog class="modal" id="overlay" aria-label="New session">
+  <form class="modal-body" id="new-form" autocomplete="off">
     <h3>New session</h3>
     <p class="hint">Starts Claude Code in its own tmux session, in auto mode. It shows up here and alerts you when it needs you.</p>
     <div class="field">
@@ -83,7 +85,7 @@
       <button type="submit" class="btn primary" id="ns-submit">Start session</button>
     </div>
   </form>
-</div>
+</dialog>
 
 <script src="vendor/xterm.js"></script>
 <script src="vendor/addon-fit.js"></script>
