@@ -38,18 +38,26 @@
         <span><kbd>Esc</kbd> leave the input</span>
         <span><kbd>t</kbd> only this ticket</span>
         <span><kbd>.</kbd> actions menu</span>
+        <span><kbd>/</kbd> filter the list</span>
       </div>
       <a class="btn" id="cheatsheet" href="/cheatsheet" target="_blank" rel="noopener" hidden>Cheat sheet</a>
       <button type="button" class="btn theme-btn" id="theme" title="Theme: follows your system until you pick one">Auto</button>
       <button type="button" class="btn" id="alerts" aria-pressed="true">Alerts on</button>
+      <button type="button" class="btn" id="sound" aria-pressed="false" title="Play a short sound when a session starts waiting">Sound off</button>
       <button type="button" class="btn primary" id="new-session">New session</button>
     </div>
   </header>
 
   <div class="banner" id="banner" hidden></div>
 
+  <div class="findbar" id="findbar">
+    <input id="q" type="search" placeholder="Filter by repository, branch, ticket, title or what it says"
+           aria-label="Filter sessions" autocomplete="off">
+    <span class="find-count" id="q-count" aria-hidden="true"></span>
+  </div>
+
   <main class="main" id="main">
-    <div class="list" id="list" aria-label="Sessions"></div>
+    <div class="list" id="list" role="navigation" aria-label="Sessions"></div>
     <section class="detail" id="detail" aria-label="Selected session">
       <div class="d-head" id="d-head"></div>
       <div class="tabs" id="tabs" role="tablist" aria-label="Session views"></div>
@@ -59,6 +67,7 @@
   </main>
 </div>
 
+<p class="sr-only" id="live-status" role="status" aria-live="polite" aria-atomic="true"></p>
 <div class="toasts" id="toasts" aria-live="polite"></div>
 <div class="act-menu" id="act-menu" hidden></div>
 

@@ -60,21 +60,40 @@
 @layer layout {
   .app {
     height: 100%;
-    display: grid; grid-template-rows: auto auto minmax(0, 1fr); gap: var(--s3);
+    display: grid; grid-template-rows: auto auto auto minmax(0, 1fr); gap: var(--s3);
     padding-block: var(--s3);
     padding-left: max(16px, env(safe-area-inset-left, 0px));
     padding-right: max(16px, env(safe-area-inset-right, 0px));
   }
 
-  /* Rows are pinned: a hidden banner leaves the grid, and the main area would slide into its content row. */
+  /* Rows are pinned: a hidden banner or findbar leaves the grid, and the main area would slide into its row. */
+  .findbar { grid-row: 3; }
   .main {
-    grid-row: 3;
+    grid-row: 4;
     display: grid; grid-template-columns: minmax(300px, 380px) minmax(0, 1fr);
     gap: var(--s3); min-height: 0;
   }
 }
 
 @layer chrome {
+
+  .sr-only {
+    position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0;
+    overflow: hidden; clip-path: inset(50%); white-space: nowrap; border: 0;
+  }
+
+  /* The filter over the live list. It sits outside the rail, so redrawing rows never takes the caret. */
+  .findbar {
+    display: flex; align-items: center; gap: var(--s2);
+    & input {
+      flex: 1; height: 34px; padding: 0 11px;
+      border: 1px solid var(--line-2); border-radius: var(--r-control);
+      background: var(--surface-2); color: var(--fg); box-shadow: var(--lift-1);
+      &:focus { outline: 0; border-color: var(--accent); box-shadow: var(--lift-1), 0 0 0 3px color-mix(in oklab, var(--accent) 22%, transparent); }
+    }
+  }
+  .find-count { color: var(--faint); font-size: 12px; font-variant-numeric: tabular-nums; }
+
   /* ---------- Top bar ---------- */
 
   .top { display: flex; align-items: center; flex-wrap: wrap; gap: 10px 18px; }

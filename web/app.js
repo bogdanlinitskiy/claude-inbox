@@ -63,6 +63,12 @@
   // ticket has more than one, because a chip that narrows the rail to a single row buys nothing.
   let tixCount = new Map();
   let alertsOn = readSetting('alerts', true);
+  // Sound is off until asked for: a page that beeps unprompted is worse than one that stays quiet. Turning it
+  // on is the click that lets the browser open an AudioContext at all.
+  let soundOn = readSetting('sound', false);
+  let audio = null;
+  // The text typed in the findbar; it narrows the live list the way the ticket chip narrows it.
+  let query = '';
   let term = null;
   let paneKey = '';
   let replyKey = '';
@@ -182,7 +188,15 @@
   }
 
   const shown = s => (filter === 'all' || group(s) === filter)
-    && (!ticketFilter || (s.ticket || '') === ticketFilter);
+    && (!ticketFilter || (s.ticket || '') === ticketFilter)
+    && matches(s);
+
+  // matches tests the typed text against the fields a row puts on screen, so what you read is what you search.
+  function matches(s) {
+    if (!query) return true;
+    return [s.title, s.repo, s.branch, s.ticket, summary(s)]
+      .some(v => v && v.toLowerCase().includes(query));
+  }
 
   // cluster keys a session by ticket, so rows on one ticket sort together. A session without a ticket is its
   // own cluster and so sorts on its own recency; the prefix keeps those keys out of the ticket space.
@@ -272,6 +286,7 @@
     const body = summary(info);
     if (!alertsOn || onScreen(info.id)) return;
     toast(title, body, info.id);
+    beep();
     if (!('Notification' in window) || Notification.permission !== 'granted') return;
     const n = new Notification(title, { body, tag: info.id });
     n.onclick = () => { window.focus(); if (sessions.has(info.id)) select(info.id); n.close(); };
@@ -290,6 +305,8 @@
     for (const s of sessions.values()) c[group(s)] += 1;
     for (const k of Object.keys(c)) $(`#c-${k}`).textContent = c[k];
     document.title = c.needs ? `(${c.needs}) ${TITLE}` : TITLE;
+    announceNeeds(c.needs);
+    renderFindbar();
     // .has colours a filter's count in its own state colour, so the top bar reports the board: a grey row of
     // zeroes when nothing is live, one amber dot the moment a session blocks.
     document.querySelectorAll('.filter').forEach(b => {
@@ -299,6 +316,26 @@
   }
 
   // An empty state is either one of the five above, or a passing line such as "Loading…".
+  // History keeps its own search box inside the rail, so the findbar is for the live list only.
+  function renderFindbar() {
+    $('#findbar').hidden = filter === 'history';
+    const n = [...sessions.values()].filter(shown).length;
+    $('#q-count').textContent = query ? `${n} of ${sessions.size}` : '';
+  }
+
+  // announceNeeds says out loud what the amber count says on screen. Only a change is announced: a screen
+  // reader repeating the same sentence on every event would bury everything else the page says.
+  let announced = -1;
+  function announceNeeds(n) {
+    if (n === announced) return;
+    announced = n;
+    const el = $('#live-status');
+    if (!el) return;
+    el.textContent = n === 0 ? 'No sessions need you.'
+      : n === 1 ? '1 session needs you.'
+      : `${n} sessions need you.`;
+  }
+
   function emptyHtml(e) {
     return typeof e === 'string'
       ? `<div class="empty-list">${esc(e)}</div>`
@@ -365,14 +402,16 @@
     const blocks = ordered();
     const scope = ticketFilter ? scopeHtml() : '';
     if (!blocks.length) {
-      const text = ticketFilter ? `Nothing on ${ticketFilter} matches this filter.` : EMPTY[filter];
+      const text = query ? `Nothing matches “${query}”.`
+        : ticketFilter ? `Nothing on ${ticketFilter} matches this filter.`
+          : EMPTY[filter];
       list.innerHTML = scope + emptyHtml(text);
       return;
     }
     // One block needs no heading: the pressed filter already names it. The ticket view keeps every heading,
     // because the split across states is the whole point of that view.
     const heads = blocks.length > 1 || !!ticketFilter;
-    list.innerHTML = scope + blocks.map(b => `<section class="group" aria-label="${esc(b.label)}">
+    list.innerHTML = scope + blocks.map(b => `<section class="group" role="group" aria-label="${esc(b.label)}">
         ${heads ? `<div class="g-head g-${b.key}"><span class="g-label">${esc(b.label)}</span><span class="g-count">${b.list.length}</span></div>` : ''}
         ${b.list.map(rowHtml).join('')}
       </section>`).join('');
@@ -402,6 +441,7 @@
     // Changes stream in while the title is edited; redrawing the head would throw the typed text away.
     if (!(renamingId === s.id && $('#rename-input'))) $('#d-head').innerHTML = headHtml(s);
     $('#tabs').innerHTML = tabsHtml(tabsOf(s), tab);
+    labelPane(tab);
     renderReply(s);
 
     const key = `${s.id}:${tab}`;
@@ -426,7 +466,12 @@
     return list.includes(tabs.get(s.id)) ? tabs.get(s.id) : list[0];
   }
 
-  const tabsHtml = (list, tab) => list.map(t => `<button type="button" class="tab" role="tab" data-tab="${t}" aria-selected="${t === tab}">${TAB_LABEL[t]}</button>`).join('');
+  // The WAI-ARIA tabs pattern: each tab names the panel it controls, and only the selected one is a tab stop,
+  // so Tab leaves the tablist and the arrow keys move inside it (see the keydown handler on #tabs).
+  const tabsHtml = (list, tab) => list.map(t => `<button type="button" class="tab" role="tab" id="tab-${t}" data-tab="${t}" aria-controls="pane" aria-selected="${t === tab}" tabindex="${t === tab ? 0 : -1}">${TAB_LABEL[t]}</button>`).join('');
+
+  // labelPane ties the panel to the tab that opened it, so a screen reader reads the panel with a name.
+  const labelPane = tab => $('#pane').setAttribute('aria-labelledby', `tab-${tab}`);
 
   function titleHtml(s) {
     const fallback = short(s.repo) || 'unknown folder';
@@ -1285,6 +1330,14 @@
     if (row) select(row.dataset.id);
   });
 
+  $('#q').addEventListener('input', e => {
+    query = e.target.value.trim().toLowerCase();
+    // The selection is left alone, as the ticket chip leaves it: narrowing the rail should not pull the detail
+    // pane out from under you.
+    renderCounts();
+    renderList();
+  });
+
   document.querySelector('.filters').addEventListener('click', e => {
     const b = e.target.closest('.filter');
     if (!b) return;
@@ -1354,6 +1407,24 @@
     e.target.form.requestSubmit();
   }
 
+  // The arrow keys move between tabs and the roving tabindex keeps one tab stop, as the tabs pattern wants.
+  // Moving the focus also opens the tab: these panels are cheap, and it keeps focus and panel in step.
+  $('#tabs').addEventListener('keydown', e => {
+    const list = [...$('#tabs').querySelectorAll('[role="tab"]')];
+    const i = list.indexOf(document.activeElement);
+    if (i < 0 || list.length < 2) return;
+    const last = list.length - 1;
+    const to = e.key === 'ArrowRight' ? (i === last ? 0 : i + 1)
+      : e.key === 'ArrowLeft' ? (i === 0 ? last : i - 1)
+        : e.key === 'Home' ? 0
+          : e.key === 'End' ? last
+            : -1;
+    if (to < 0) return;
+    e.preventDefault();
+    list[to].click();
+    $(`#tab-${list[to].dataset.tab}`)?.focus();
+  });
+
   $('#detail').addEventListener('keydown', enterSends);
   $('#detail').addEventListener('keydown', e => {
     if (e.target.id === 'rename-input' && e.key === 'Escape') cancelRename();
@@ -1364,6 +1435,45 @@
   $('#new-form').addEventListener('keydown', enterSends);
 
   /* ---------- Alerts ---------- */
+
+  // beep is two short notes from an oscillator rather than an audio file: nothing to vendor, nothing to fetch,
+  // and it works with the page offline like everything else here. The context is opened by the click that turns
+  // the sound on, which is the gesture browsers require before any audio plays.
+  function beep() {
+    if (!soundOn) return;
+    try {
+      audio ||= new (window.AudioContext || window.webkitAudioContext)();
+      if (audio.state === 'suspended') audio.resume();
+      const at = audio.currentTime;
+      const gain = audio.createGain();
+      gain.connect(audio.destination);
+      // Ramps, not steps: a square edge on the gain is heard as a click.
+      gain.gain.setValueAtTime(0.0001, at);
+      gain.gain.exponentialRampToValueAtTime(0.12, at + 0.01);
+      gain.gain.exponentialRampToValueAtTime(0.0001, at + 0.34);
+      const osc = audio.createOscillator();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(660, at);
+      osc.frequency.setValueAtTime(880, at + 0.12);
+      osc.connect(gain);
+      osc.start(at);
+      osc.stop(at + 0.35);
+    } catch { /* no audio device, or the browser refused: the toast and the notification still fire */ }
+  }
+
+  function renderSound() {
+    const b = $('#sound');
+    b.setAttribute('aria-pressed', String(soundOn));
+    b.textContent = soundOn ? 'Sound on' : 'Sound off';
+  }
+
+  $('#sound').addEventListener('click', () => {
+    soundOn = !soundOn;
+    writeSetting('sound', soundOn);
+    renderSound();
+    // Play it once on the way on: it confirms the setting, and it is the gesture that unlocks audio.
+    if (soundOn) beep();
+  });
 
   function renderAlerts() {
     const b = $('#alerts');
@@ -1548,6 +1658,7 @@
         <span>${esc(c.repo)}</span>${branch}<span class="mono">${esc(c.dir)}</span>
       </div>`;
     $('#tabs').innerHTML = tabsHtml(['preview'], 'preview');
+    labelPane('preview');
     $('#reply').innerHTML = '';
     replyKey = '';
     const key = `${c.id}:preview`;
@@ -1587,6 +1698,13 @@
     const tag = e.target.tagName;
     if (tag === 'INPUT' || tag === 'SELECT' || tag === 'TEXTAREA') {
       if (e.key === 'Escape' && e.target.id === 'reply-input') e.target.blur();
+      if (e.key === 'Escape' && e.target.id === 'q') {
+        e.target.value = '';
+        query = '';
+        renderCounts();
+        renderList();
+        e.target.blur();
+      }
       return;
     }
     if (e.metaKey || e.ctrlKey || e.altKey) return;
@@ -1610,6 +1728,10 @@
       // The ticket chip is not focusable, so this is how the keyboard narrows the rail to one ticket.
       e.preventDefault();
       setTicketFilter(ticketFilter ? null : sessions.get(selectedId).ticket);
+    } else if (e.key === '/') {
+      e.preventDefault();
+      $('#q').focus();
+      $('#q').select();
     } else if (/^[1-9]$/.test(e.key)) {
       // A digit only moves to the option; Enter on it picks it, so a stray key never answers.
       const opt = document.querySelector(`#reply .opt[data-opt="${Number(e.key) - 1}"]`);
@@ -1746,6 +1868,7 @@
   }
 
   renderAlerts();
+  renderSound();
   render();
   // Without the config the optional buttons stay hidden; loadAll below reports why the server is unreachable.
   loadPageConfig().catch(() => {});
