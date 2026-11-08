@@ -43,6 +43,8 @@ type fakeTmux struct {
 	lastText        string
 	// targets records where keys went, to tell a session name from a pane id.
 	targets []string
+	// captures counts the screen reads, so a test can see the backoff.
+	captures int
 }
 
 func newFakeTmux() *fakeTmux {
@@ -96,6 +98,7 @@ func (f *fakeTmux) PasteText(_ context.Context, name, text string) error {
 func (f *fakeTmux) Capture(context.Context, string) (string, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
+	f.captures++
 	return f.screen, nil
 }
 
@@ -114,6 +117,14 @@ func (f *fakeTmux) Kill(_ context.Context, name string) error {
 
 func (f *fakeTmux) AttachCommand(name string) []string {
 	return []string{"tmux", "attach-session", "-t", name}
+}
+
+func (f *fakeTmux) takeCaptures() int {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	n := f.captures
+	f.captures = 0
+	return n
 }
 
 func (f *fakeTmux) takeSent() []string {
@@ -1391,6 +1402,39 @@ func TestMenuReadFromTheScreenGoesWhenAnsweredInTheTerminal(t *testing.T) {
 	f.clock.Advance(3 * time.Second)
 	f.m.checkScreens(ctx)
 	assert.Equal(t, state.KindDone, f.kind(t, info.ID))
+}
+
+// A session nobody touches should not cost a capture-pane every couple of seconds for as long as it is open.
+func TestScreenReadsBackOffWhileNothingIsOnTheScreen(t *testing.T) {
+	f := newFixture(t)
+	f.done(t)
+	ctx := context.Background()
+	f.tmux.screen = "● All tests pass."
+	f.tmux.takeCaptures()
+
+	// Ten minutes, offered every two seconds. Without the backoff that is 300 reads.
+	for range 300 {
+		f.clock.Advance(2 * time.Second)
+		f.m.checkScreens(ctx)
+	}
+	backedOff := f.tmux.takeCaptures()
+	assert.Less(t, backedOff, 30, "the wait should grow while the screen holds nothing")
+	assert.Greater(t, backedOff, 0, "it should still read now and then")
+
+	// A menu appears. The backoff is what it costs: the menu is seen within maxScreenInterval rather than at
+	// once. From then on the session is read at the base interval again, so the menu leaving is seen quickly.
+	f.tmux.screen = screenMenu
+	for range maxScreenInterval / (2 * time.Second) {
+		f.clock.Advance(2 * time.Second)
+		f.m.checkScreens(ctx)
+	}
+	require.Equal(t, state.KindQuestion, f.kind(t, f.m.List()[0].ID), "seen within maxScreenInterval")
+
+	for range 15 {
+		f.clock.Advance(2 * time.Second)
+		f.m.checkScreens(ctx)
+	}
+	assert.Greater(t, f.tmux.takeCaptures(), 10, "a session showing a menu is read at the base interval")
 }
 
 func TestScreenIsNotReadWhileAHookedQuestionWaits(t *testing.T) {

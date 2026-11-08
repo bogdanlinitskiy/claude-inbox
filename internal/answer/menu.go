@@ -1,28 +1,15 @@
 package answer
 
 import (
-	"regexp"
 	"strconv"
 	"strings"
 
 	"github.com/bogdanlinitskiy/claude-inbox/internal/state"
 )
 
-const (
-	minMenuOptions = 2
-	// menuFooter ends every menu Claude Code draws ("Esc to cancel · Tab to amend", "Enter to select · … · Esc to
-	// cancel"). A menu needs it: a past prompt written as a numbered list shows as "❯ 1. …" in the scrollback too,
-	// but with no footer under it.
-	menuFooter = "Esc to cancel"
-)
-
-var (
-	// The entry the cursor is on: "❯ 1. Yes". The prompt line of an idle session is "❯" followed by a no-break
-	// space, so a digit typed there ("❯ 1") never matches: it has no dot.
-	selectedEntry = regexp.MustCompile(`^[\s\x{00a0}]*❯[\s\x{00a0}]*(\d+)\.\s+(\S.*)$`)
-	menuEntry     = regexp.MustCompile(`^[\s\x{00a0}]*(?:❯[\s\x{00a0}]*)?(\d+)\.\s+(\S.*)$`)
-	separatorLine = regexp.MustCompile(`^[\s\x{00a0}─━╌┄═-]*$`)
-)
+// minMenuOptions: a single numbered line is a list inside a message, not a menu to answer.
+// The screen text and patterns this file matches on are in wording.go.
+const minMenuOptions = 2
 
 // Menu is a numbered menu on Claude Code's screen: the question above it and its entries, numbered from 1.
 type Menu struct {

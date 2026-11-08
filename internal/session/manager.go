@@ -38,6 +38,9 @@ const (
 	keyClearInput      = "C-c"
 	keyEnter           = "Enter"
 	exitCommand        = "/exit"
+	// maxScreenInterval caps the backoff of the screen reads. A session nobody touches is read a few times an
+	// hour instead of every couple of seconds, and a menu that appears on it is still seen within this.
+	maxScreenInterval = 30 * time.Second
 	resumeFlag         = "--resume"
 	worktreesSuffix    = "-worktrees"
 )
@@ -106,8 +109,12 @@ type Config struct {
 	// reported, and how often it reads it again.
 	ScreenCheckInterval time.Duration
 	// KeyPause separates typed text from the Enter that submits it.
-	KeyPause          time.Duration
-	PollInterval      time.Duration
+	KeyPause     time.Duration
+	PollInterval time.Duration
+	// DiscoverInterval is how often the state directory is listed for sessions the global hook has written. It
+	// is slower than PollInterval on purpose: reading the events of sessions already listed is what has to be
+	// prompt, while a new one showing up a fraction of a second later costs nothing. Zero means PollInterval.
+	DiscoverInterval  time.Duration
 	PaneCheckInterval time.Duration
 }
 
@@ -186,6 +193,10 @@ type entry struct {
 	// lastEventAt is when the last event arrived; screenCheckedAt is when checkScreens last read the screen.
 	lastEventAt     time.Time
 	screenCheckedAt time.Time
+	// screenInterval is how long to wait before reading this session's screen again: it doubles for every read
+	// that found nothing to track, and goes back to the base interval on anything worth reading. Zero means the
+	// base interval.
+	screenInterval time.Duration
 	// send keeps two answers to one session from interleaving their keys.
 	send sync.Mutex
 }
@@ -301,6 +312,12 @@ func (e *entry) tmuxOf() (pane, error) {
 func (m *Manager) Run(ctx context.Context) {
 	poll := time.NewTicker(m.cfg.PollInterval)
 	defer poll.Stop()
+	discoverEvery := m.cfg.DiscoverInterval
+	if discoverEvery <= 0 {
+		discoverEvery = m.cfg.PollInterval
+	}
+	discoveries := time.NewTicker(discoverEvery)
+	defer discoveries.Stop()
 	panes := time.NewTicker(m.cfg.PaneCheckInterval)
 	defer panes.Stop()
 	for {
@@ -308,11 +325,12 @@ func (m *Manager) Run(ctx context.Context) {
 		case <-ctx.Done():
 			return
 		case <-poll.C:
-			m.discover(ctx)
 			m.pollEvents()
 			m.checkPending(ctx)
 			m.checkTrust(ctx)
 			m.checkScreens(ctx)
+		case <-discoveries.C:
+			m.discover(ctx)
 		case <-panes.C:
 			m.checkPanes(ctx)
 		}
@@ -709,6 +727,8 @@ func (m *Manager) readNew(e *entry) (bool, error) {
 		seq := e.state.Seq
 		e.state = state.Apply(e.state, rec)
 		e.lastEventAt = rec.TS
+		// Something happened, so the screen is worth reading at the base interval again.
+		e.screenInterval = 0
 		if e.state.Seq != seq {
 			changed = true
 		}
@@ -882,7 +902,7 @@ func (m *Manager) checkScreens(ctx context.Context) {
 	for _, e := range m.entries {
 		hooked := e.state.NeedsYou() && !e.state.FromScreen
 		if !e.inTmux || e.pending != nil || hooked || e.ended() ||
-			now.Sub(e.lastEventAt) < m.cfg.ScreenCheckInterval || now.Sub(e.screenCheckedAt) < m.cfg.ScreenCheckInterval {
+			now.Sub(e.lastEventAt) < m.cfg.ScreenCheckInterval || now.Sub(e.screenCheckedAt) < e.screenEvery(m.cfg.ScreenCheckInterval) {
 			continue
 		}
 		e.screenCheckedAt = now
@@ -897,6 +917,15 @@ func (m *Manager) checkScreens(ctx context.Context) {
 			continue
 		}
 		menu, ok := answer.ParseMenu(screen)
+		// A menu on the screen, or one this session is already showing, keeps the reads frequent: the second
+		// case has to notice the menu leaving. Only a screen with nothing on it backs off.
+		m.mu.Lock()
+		if ok || c.s.FromScreen {
+			c.e.screenInterval = 0
+		} else {
+			c.e.backOffScreen(m.cfg.ScreenCheckInterval)
+		}
+		m.mu.Unlock()
 		switch {
 		case ok && (!c.s.FromScreen || !sameAsAsked(c.s, menu)):
 			err = m.appendAppEvent(c.e.meta.ID, state.EventScreenPrompt, menu.AsQuestion())
@@ -907,6 +936,19 @@ func (m *Manager) checkScreens(ctx context.Context) {
 			m.cfg.Logger.Error("record a menu read from the screen", "session", c.e.meta.ID, "err", err)
 		}
 	}
+}
+
+// screenEvery is how long this session waits between screen reads. The caller holds m.mu.
+func (e *entry) screenEvery(base time.Duration) time.Duration {
+	if e.screenInterval < base {
+		return base
+	}
+	return e.screenInterval
+}
+
+// backOffScreen doubles the wait after a read that found nothing. The caller holds m.mu.
+func (e *entry) backOffScreen(base time.Duration) {
+	e.screenInterval = min(e.screenEvery(base)*2, maxScreenInterval)
 }
 
 func sameAsAsked(s state.Session, menu answer.Menu) bool {

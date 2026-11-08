@@ -2,24 +2,12 @@ package answer
 
 import (
 	"errors"
-	"regexp"
 	"strconv"
 	"strings"
 )
 
-const (
-	// Permission menus ask "Do you want to …?" in several wordings: "proceed?" (Bash), "make this edit to <file>?"
-	// (Edit), "allow Claude to fetch this content?" (WebFetch).
-	permissionQuestion = "Do you want to "
-	trustQuestion      = "Is this a project you created or one you trust?"
-)
-
-var (
-	ErrNoMenuOnScreen = errors.New("no permission menu with a No entry on screen")
-
-	// "   4. No" or "❯ 4. No", optionally followed by ", and tell Claude …" in other Claude Code versions.
-	noEntry = regexp.MustCompile(`^\s*(?:❯\s*)?(\d+)\.\s+No(?:\s*$|,)`)
-)
+// The screen text and patterns this file matches on are in wording.go.
+var ErrNoMenuOnScreen = errors.New("no permission menu with a No entry on screen")
 
 // NoOptionNumber reads the number of the "No" entry of the permission menu on screen. Only lines after the last
 // "Do you want to …" question count, so older output above the menu cannot match.
