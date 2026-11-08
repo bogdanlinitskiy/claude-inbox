@@ -23,9 +23,13 @@ an IDE terminal, so the app can answer it.
 
 ## Docs
 
-- `README.md` — what it does, install, usage.
+- `README.md` — what, why, how, quick start; it links everything else and stays short.
+- `docs/install.md`, `docs/guide.md`, `docs/configuration.md`, `docs/repositories.md`, `docs/actions.md`,
+  `docs/security.md`, `docs/development.md` — the details the README links to. New user-facing behaviour goes in
+  the fitting one, not in the README.
 - `docs/architecture.md` — design: state directory, hook modes, packages, state machine, HTTP API. Code comments
   cite its sections.
+- `docs/media/README.md` — how the README's demo GIF is recorded.
 
 ## Commands
 
