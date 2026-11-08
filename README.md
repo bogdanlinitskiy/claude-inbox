@@ -40,7 +40,8 @@ state from the recorded events. Details in [docs/architecture.md](docs/architect
 
 ## Quick start
 
-Needs Linux or macOS with `tmux`, `git` and `claude` on `PATH`.
+Needs Linux or macOS with `tmux`, `git` and `claude` on `PATH`; on Windows it runs under
+[WSL](docs/install.md#on-windows-with-wsl).
 
 ```bash
 go install github.com/bogdanlinitskiy/claude-inbox/cmd/claude-inbox@latest
