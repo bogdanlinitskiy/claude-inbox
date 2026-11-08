@@ -18,7 +18,9 @@ Three blocks, always in this order:
 - **Working** — Claude is busy. The row shows what it is doing.
 - **Done** — finished or idle, with the last message.
 
-Every row carries its repository, branch, state and how long it has been in that state. The filters in the header
+Every row carries its repository, branch, state and how long it has been in that state. A row can also be
+tagged **from screen**, for a question the app read off the terminal rather than one Claude Code reported; see
+[Questions read from the screen](#questions-read-from-the-screen). The filters in the header
 (All, Needs you, Working, Done) narrow the list; the counts next to them are live.
 
 Sessions whose branch holds the same ticket id sit together inside their block. Click the ticket chip on a row, or
@@ -49,6 +51,17 @@ An option, a permission, and an answer in your own words:
 Your own buttons sit above the reply box and in the Actions menu, see [actions.md](actions.md).
 
 Answers are typed into the session's tmux pane, so Claude sees exactly what it would see from the keyboard.
+
+### Questions read from the screen
+
+Claude Code asks some things without reporting them to the app: a new MCP server, a usage limit, and other
+prompts that reach the terminal with no hook behind them. For a session that runs in tmux, the app reads the
+screen every couple of seconds while it is quiet, and shows a numbered menu it finds there as a question tagged
+**from screen**. Answer it like any other.
+
+Such a question is read from the terminal rather than reported, so it carries less than a normal one: the
+options as they are written on the screen, and no description of the tool behind them. If the menu disappears
+because you answered it in the terminal instead, the row goes back to what it showed before.
 
 ## Tabs
 

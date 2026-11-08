@@ -35,9 +35,12 @@ state with one pure function, tested against a recorded run (`testdata/spike-hoo
 
 App events (`source: "app"`): `interrupt` (Esc sent), `denied` (No picked on a permission menu), `trust_prompt`
 (the trust screen is showing), `pane_gone` (tmux session vanished), `process_gone` (the `claude` process of a
-discovered session is gone), `closed`. Interrupt and Deny fire no hook, and the trust screen comes before any hook,
-so the app records them itself. Keeping them in the same file keeps one ordered history per session, so a restart
-replays exactly what happened.
+discovered session is gone), `closed`, `screen_prompt` (a menu no hook reported is on the screen; the payload is
+that menu as a question), `screen_prompt_gone` (that menu left the screen unanswered) and `answered` (an answer
+from the app took a menu off the screen before any hook said so). The last three carry a `seq`, so an event that
+arrives after the session has moved on changes nothing. Interrupt and Deny fire no hook, the trust screen comes
+before any hook, and Claude Code asks some things without a hook at all, so the app records them itself. Keeping
+them in the same file keeps one ordered history per session, so a restart replays exactly what happened.
 
 ## Hook modes
 
@@ -112,6 +115,9 @@ Session state: `kind` (Trust, Idle, Working, Question, Permission, Done, Ended, 
 | `SessionEnd`, app `pane_gone`, `process_gone`, `closed` | Ended |
 | app `trust_prompt` | Trust |
 | app `interrupt`, app `denied` | Idle |
+| app `screen_prompt` | Question read from the screen, marked `fromScreen`; ignored when a hook already said what the session waits on |
+| app `screen_prompt_gone` for the current `seq` | back to the state the session was in before the menu appeared |
+| app `answered` for the current `seq` | Working after a question or a permission, Idle after the trust screen, else back as for `screen_prompt_gone` |
 | any other event | unchanged |
 
 ## Answers to keys
@@ -193,6 +199,13 @@ One goroutine owned by `serve` polls the event files every 200 ms from their sav
 appears within one poll of its first event. Every 5 s the app checks that each app session's tmux pane still
 exists (`pane_gone` otherwise) and that each discovered session's `claude` process still runs (`process_gone`). A
 session that reaches Ended is archived and leaves the list; its conversation is then in History.
+
+Hooks do not cover everything Claude Code asks: a new MCP server, a usage limit, and other prompts reach the
+screen with no hook behind them. So every 2 s the app reads the screen (`capture-pane`) of each session in tmux
+that runs in tmux, waits on nothing a hook reported, has no answer on its way, and has been quiet for 2 s. A
+numbered menu there becomes a `screen_prompt`, which the page shows as a question tagged "from screen"; when the
+menu leaves the screen unanswered, a `screen_prompt_gone` puts the session back where it was. A session whose
+screen keeps showing the same menu is not recorded again.
 
 On start-up `serve` replays every file and publishes nothing until the replay is done, so no stale alerts fire
 (only `live` changes alert).
