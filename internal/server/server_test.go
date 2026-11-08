@@ -247,7 +247,7 @@ func TestLocalhostIsAllowedToo(t *testing.T) {
 
 func TestTokenLinkSetsCookie(t *testing.T) {
 	f := newFixture()
-	r := httptest.NewRequest(http.MethodGet, "/?token="+testToken, nil)
+	r := httptest.NewRequest(http.MethodGet, "/?token="+testToken, http.NoBody)
 	r.Host = host
 
 	w := f.do(r)
@@ -263,7 +263,7 @@ func TestTokenLinkSetsCookie(t *testing.T) {
 
 func TestOldTokenLinkIsRefused(t *testing.T) {
 	f := newFixture()
-	r := httptest.NewRequest(http.MethodGet, "/?token=from-last-run", nil)
+	r := httptest.NewRequest(http.MethodGet, "/?token=from-last-run", http.NoBody)
 	r.Host = host
 
 	w := f.do(r)
@@ -277,7 +277,7 @@ func TestPage(t *testing.T) {
 
 	page := f.do(request(http.MethodGet, "/", ""))
 	asset := f.do(request(http.MethodGet, "/app.js", ""))
-	noCookie := httptest.NewRequest(http.MethodGet, "/app.js", nil)
+	noCookie := httptest.NewRequest(http.MethodGet, "/app.js", http.NoBody)
 	noCookie.Host = host
 
 	assert.Equal(t, http.StatusOK, page.Code)
@@ -307,7 +307,7 @@ func TestCheatSheet(t *testing.T) {
 
 	f.srv.cfg.CheatSheet = target
 	w := f.do(request(http.MethodGet, "/cheatsheet", ""))
-	noCookie := httptest.NewRequest(http.MethodGet, "/cheatsheet", nil)
+	noCookie := httptest.NewRequest(http.MethodGet, "/cheatsheet", http.NoBody)
 	noCookie.Host = host
 
 	assert.Equal(t, http.StatusFound, w.Code)
@@ -551,7 +551,7 @@ func TestStream(t *testing.T) {
 	f := newFixture()
 	ts := httptest.NewServer(f.srv)
 	defer ts.Close()
-	r, err := http.NewRequest(http.MethodGet, ts.URL+"/api/stream", nil)
+	r, err := http.NewRequest(http.MethodGet, ts.URL+"/api/stream", http.NoBody)
 	require.NoError(t, err)
 	r.Host = host
 	r.AddCookie(&http.Cookie{Name: tokenCookie, Value: testToken})

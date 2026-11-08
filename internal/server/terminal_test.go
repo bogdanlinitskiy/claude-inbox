@@ -36,11 +36,16 @@ func TestTerminalRefusesSessionsOutsideTmux(t *testing.T) {
 }
 
 func TestValidSide(t *testing.T) {
-	assert.True(t, validSide(1))
-	assert.True(t, validSide(maxSide))
-	assert.False(t, validSide(0))
-	assert.False(t, validSide(-5))
-	assert.False(t, validSide(maxSide+1))
+	for _, n := range []int{1, maxSide} {
+		got, ok := side(n)
+		assert.True(t, ok)
+		assert.Equal(t, uint16(n), got)
+	}
+	for _, n := range []int{0, -5, maxSide + 1} {
+		got, ok := side(n)
+		assert.False(t, ok)
+		assert.Zero(t, got)
+	}
 }
 
 func TestInitialSize(t *testing.T) {
@@ -56,7 +61,7 @@ func TestInitialSize(t *testing.T) {
 		{query: "?cols=130&rows=99999", cols: initialCols, rows: initialRows},
 	}
 	for _, tc := range cases {
-		r := httptest.NewRequest(http.MethodGet, "/api/session/x/terminal"+tc.query, nil)
+		r := httptest.NewRequest(http.MethodGet, "/api/session/x/terminal"+tc.query, http.NoBody)
 		cols, rows := initialSize(r)
 		assert.Equal(t, tc.cols, cols, tc.query)
 		assert.Equal(t, tc.rows, rows, tc.query)

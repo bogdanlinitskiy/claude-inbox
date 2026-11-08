@@ -14,7 +14,7 @@ import (
 // The start form's headings when no repository groups are configured.
 const (
 	groupRecent     = "Recent"
-	groupWorkspaces = "Workspace: across repositories"
+	groupWorkspaces = "Workspace: across repositories" //nolint:gosec // G101 false positive: a heading, not a credential.
 	groupOther      = "Other repositories"
 )
 

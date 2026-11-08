@@ -26,7 +26,7 @@ const (
 // text, so the session's state stays where it was instead of the hook running out of memory.
 const maxPayload = 8 << 20
 
-var panePattern = regexp.MustCompile(`^%[0-9]+$`)
+var panePattern = regexp.MustCompile(`^%\d+$`)
 
 // Events are the hook events the app registers, for its own sessions and in the global settings; they are the ones
 // the state machine reads (docs/architecture.md, "Hook modes").
