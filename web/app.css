@@ -361,6 +361,15 @@
   .row-top { display: flex; align-items: center; gap: var(--s2); min-width: 0; }
   .repo { flex: none; font-weight: 650; letter-spacing: -0.01em; }
 
+  /* A live row leads with its title: one line, cut with an ellipsis, sized to the rail's width. */
+  .row-head { display: flex; align-items: baseline; gap: var(--s2); min-width: 0; }
+  .row-title {
+    flex: 0 1 auto; min-width: 0;
+    font-size: clamp(var(--t-md), 4cqi, var(--t-lg)); font-weight: 650; letter-spacing: -0.01em;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .row-repo { flex: none; font: 600 var(--t-xs) var(--font-ui); color: var(--muted); white-space: nowrap; }
+
   /* The branch holds the width the state pill used to take. It is the one fact you act on outside the app,
      so it ellipsises rather than wrapping the strip. */
   .row-branch {
