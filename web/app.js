@@ -67,7 +67,7 @@
   // on is the click that lets the browser open an AudioContext at all.
   let soundOn = readSetting('sound', false);
   let audio = null;
-  // The text typed in the findbar; it narrows the live list the way the ticket chip narrows it.
+  // The text typed in the live filter; it narrows the live list the way the ticket chip narrows it.
   let query = '';
   let term = null;
   let paneKey = '';
@@ -306,7 +306,7 @@
     for (const k of Object.keys(c)) $(`#c-${k}`).textContent = c[k];
     document.title = c.needs ? `(${c.needs}) ${TITLE}` : TITLE;
     announceNeeds(c.needs);
-    renderFindbar();
+    renderSearch();
     // .has colours a filter's count in its own state colour, so the top bar reports the board: a grey row of
     // zeroes when nothing is live, one amber dot the moment a session blocks.
     document.querySelectorAll('.filter').forEach(b => {
@@ -315,12 +315,10 @@
     });
   }
 
-  // An empty state is either one of the five above, or a passing line such as "Loading…".
-  // History keeps its own search box inside the rail, so the findbar is for the live list only.
-  function renderFindbar() {
-    $('#findbar').hidden = filter === 'history';
-    const n = [...sessions.values()].filter(shown).length;
-    $('#q-count').textContent = query ? `${n} of ${sessions.size}` : '';
+  // The live filter and the History search share the top of the rail; the open view picks which one shows.
+  function renderSearch() {
+    $('#q').hidden = filter === 'history';
+    $('#h-search').hidden = filter !== 'history';
   }
 
   // announceNeeds says out loud what the amber count says on screen. Only a change is announced: a screen
@@ -338,6 +336,7 @@
       : `${n} sessions need you.`;
   }
 
+  // An empty state is either one of the five above, or a passing line such as "Loading…".
   function emptyHtml(e) {
     return typeof e === 'string'
       ? `<div class="empty-list">${esc(e)}</div>`
@@ -1627,13 +1626,9 @@
     </button>`;
   }
 
-  // The search box is drawn once, so typing in it keeps the focus while the rows below it are redrawn.
   function renderHistoryList() {
     const list = $('#list');
-    if (!$('#h-search')) {
-      list.innerHTML = `<div class="h-search"><input id="h-search" type="search" placeholder="Search title, repository, ticket or branch" aria-label="Search history" autocomplete="off"></div><div id="h-rows"></div>`;
-      $('#h-search').value = pastQuery;
-    }
+    if (!$('#h-rows')) list.innerHTML = '<div id="h-rows"></div>';
     const rows = pastList();
     const empty = !pastLoaded ? 'Loading…' : past.size ? 'Nothing matches.' : EMPTY.history;
     $('#h-rows').innerHTML = rows.length
@@ -1702,8 +1697,7 @@
     }
   }
 
-  $('#list').addEventListener('input', e => {
-    if (e.target.id !== 'h-search') return;
+  $('#h-search').addEventListener('input', e => {
     pastQuery = e.target.value;
     renderList();
   });
@@ -1747,8 +1741,9 @@
       setTicketFilter(ticketFilter ? null : sessions.get(selectedId).ticket);
     } else if (e.key === '/') {
       e.preventDefault();
-      $('#q').focus();
-      $('#q').select();
+      const box = filter === 'history' ? $('#h-search') : $('#q');
+      box.focus();
+      box.select();
     } else if (/^[1-9]$/.test(e.key)) {
       // A digit only moves to the option; Enter on it picks it, so a stray key never answers.
       const opt = document.querySelector(`#reply .opt[data-opt="${Number(e.key) - 1}"]`);

@@ -50,14 +50,16 @@
 
   <div class="banner" id="banner" hidden></div>
 
-  <div class="findbar" id="findbar">
-    <input id="q" type="search" placeholder="Filter by repository, branch, ticket, title or what it says"
-           aria-label="Filter sessions" autocomplete="off">
-    <span class="find-count" id="q-count" aria-hidden="true"></span>
-  </div>
-
   <main class="main" id="main">
-    <div class="list" id="list" role="navigation" aria-label="Sessions"></div>
+    <div class="rail">
+      <div class="rail-search">
+        <input id="q" type="search" placeholder="Filter title, repository, ticket or branch"
+               aria-label="Filter sessions" autocomplete="off">
+        <input id="h-search" type="search" placeholder="Search title, repository, ticket or branch"
+               aria-label="Search history" autocomplete="off" hidden>
+      </div>
+      <div class="list" id="list" role="navigation" aria-label="Sessions"></div>
+    </div>
     <section class="detail" id="detail" aria-label="Selected session">
       <div class="d-head" id="d-head"></div>
       <div class="tabs" id="tabs" role="tablist" aria-label="Session views"></div>

@@ -60,16 +60,15 @@
 @layer layout {
   .app {
     height: 100%;
-    display: grid; grid-template-rows: auto auto auto minmax(0, 1fr); gap: var(--s3);
+    display: grid; grid-template-rows: auto auto minmax(0, 1fr); gap: var(--s3);
     padding-block: var(--s3);
     padding-left: max(16px, env(safe-area-inset-left, 0px));
     padding-right: max(16px, env(safe-area-inset-right, 0px));
   }
 
-  /* Rows are pinned: a hidden banner or findbar leaves the grid, and the main area would slide into its row. */
-  .findbar { grid-row: 3; }
+  /* Rows are pinned: a hidden banner leaves the grid, and the main area would slide into its content row. */
   .main {
-    grid-row: 4;
+    grid-row: 3;
     display: grid; grid-template-columns: minmax(300px, 380px) minmax(0, 1fr);
     gap: var(--s3); min-height: 0;
   }
@@ -81,18 +80,6 @@
     position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0;
     overflow: hidden; clip-path: inset(50%); white-space: nowrap; border: 0;
   }
-
-  /* The filter over the live list. It sits outside the rail, so redrawing rows never takes the caret. */
-  .findbar {
-    display: flex; align-items: center; gap: var(--s2);
-    & input {
-      flex: 1; height: 34px; padding: 0 11px;
-      border: 1px solid var(--line-2); border-radius: var(--r-control);
-      background: var(--surface-2); color: var(--fg); box-shadow: var(--lift-1);
-      &:focus { outline: 0; border-color: var(--accent); box-shadow: var(--lift-1), 0 0 0 3px color-mix(in oklab, var(--accent) 22%, transparent); }
-    }
-  }
-  .find-count { color: var(--faint); font-size: 12px; font-variant-numeric: tabular-nums; }
 
   /* ---------- Top bar ---------- */
 
@@ -235,12 +222,19 @@
 }
 
 @layer rail {
-  /* One scrolling surface with sticky group headers — not cards inside cards. */
-  .list {
-    min-height: 0; overflow: auto;
+  /* One panel: the search box on top, outside the scroller, so the scrollbar starts under it and redrawing rows
+     never takes the caret. */
+  .rail {
+    min-height: 0; overflow: hidden;
+    display: grid; grid-template-rows: auto minmax(0, 1fr);
     background: var(--surface-1);
     border: 1px solid var(--line); border-radius: var(--r-panel);
     box-shadow: var(--lift-1);
+  }
+
+  /* One scrolling surface with sticky group headers — not cards inside cards. */
+  .list {
+    min-height: 0; overflow: auto;
     scrollbar-gutter: stable; overscroll-behavior: contain;
     display: grid; align-content: start;
     /* The rail answers to its own width, not the window's: it is a resizable split and it is embeddable. */
@@ -396,9 +390,9 @@
     & span { max-width: 42ch; font-size: var(--t-sm); text-wrap: pretty; }
   }
 
-  /* History search sits above the rail. */
-  .h-search {
-    padding: 0 0 var(--s2);
+  /* The live filter and the History search share this spot; one of them shows. */
+  .rail-search {
+    padding: var(--s2); border-bottom: 1px solid var(--line);
     & input {
       width: 100%; height: 34px; padding: 0 11px;
       border: 1px solid var(--line-2); border-radius: var(--r-control);
@@ -857,7 +851,7 @@
 
 @media (max-width: 880px) {
   .main { grid-template-columns: minmax(0, 1fr); }
-  .main.show-detail .list { display: none; }
+  .main.show-detail .rail { display: none; }
   .main:not(.show-detail) .detail { display: none; }
   .back { display: inline-flex; }
   .d-tools { margin-left: 0; }
