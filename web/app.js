@@ -325,9 +325,11 @@
 
   // announceNeeds says out loud what the amber count says on screen. Only a change is announced: a screen
   // reader repeating the same sentence on every event would bury everything else the page says.
+  // Nothing is announced before the first load: an empty map would read as "No sessions need you."
   let announced = -1;
+  let loaded = false;
   function announceNeeds(n) {
-    if (n === announced) return;
+    if (!loaded || n === announced) return;
     announced = n;
     const el = $('#live-status');
     if (!el) return;
@@ -1437,13 +1439,11 @@
   /* ---------- Alerts ---------- */
 
   // beep is two short notes from an oscillator rather than an audio file: nothing to vendor, nothing to fetch,
-  // and it works with the page offline like everything else here. The context is opened by the click that turns
-  // the sound on, which is the gesture browsers require before any audio plays.
+  // and it works with the page offline like everything else here. It plays only once unlockAudio has run: a
+  // suspended context would hold every note and play them all at once on the next click.
   function beep() {
-    if (!soundOn) return;
+    if (!soundOn || audio?.state !== 'running') return;
     try {
-      audio ||= new (window.AudioContext || window.webkitAudioContext)();
-      if (audio.state === 'suspended') audio.resume();
       const at = audio.currentTime;
       const gain = audio.createGain();
       gain.connect(audio.destination);
@@ -1461,6 +1461,23 @@
     } catch { /* no audio device, or the browser refused: the toast and the notification still fire */ }
   }
 
+  // unlockAudio opens or resumes the audio context. Browsers allow that only inside a user gesture, so it runs
+  // from clicks and keys, never from an alert.
+  function unlockAudio() {
+    if (!soundOn) return Promise.resolve();
+    try {
+      audio ||= new (window.AudioContext || window.webkitAudioContext)();
+      return audio.state === 'running' ? Promise.resolve() : audio.resume();
+    } catch (err) {
+      return Promise.reject(err);
+    }
+  }
+
+  // Sound left on from the last visit has no click behind it after a reload: the first one on the page unlocks it.
+  for (const type of ['pointerdown', 'keydown']) {
+    document.addEventListener(type, () => { unlockAudio().catch(() => {}); }, { capture: true });
+  }
+
   function renderSound() {
     const b = $('#sound');
     b.setAttribute('aria-pressed', String(soundOn));
@@ -1471,8 +1488,8 @@
     soundOn = !soundOn;
     writeSetting('sound', soundOn);
     renderSound();
-    // Play it once on the way on: it confirms the setting, and it is the gesture that unlocks audio.
-    if (soundOn) beep();
+    // Play it once on the way on: it confirms the setting, and this click is the gesture that unlocks audio.
+    if (soundOn) unlockAudio().then(beep).catch(() => {});
   });
 
   function renderAlerts() {
@@ -1779,6 +1796,7 @@
       const first = listed()[0];
       selectedId = first ? first.id : null;
     }
+    loaded = true;
     render();
     followLink();
     loadPast();

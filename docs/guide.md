@@ -28,6 +28,10 @@ press <kbd>t</kbd>, to narrow the list to that ticket and see how its sessions a
 press <kbd>t</kbd> again to clear it. Which id counts as a ticket is set by `ticket_pattern`, see
 [configuration.md](configuration.md).
 
+The filter box above the list narrows it to rows whose repository, branch, ticket, title or text contains what you
+type. <kbd>/</kbd> focuses it; <kbd>Esc</kbd> clears it. History has its own search box, so the filter box hides
+there.
+
 ## Answering
 
 The reply box under the selected session changes with its state:
@@ -101,6 +105,12 @@ a Resume button that starts it again in tmux, where it rejoins the list.
 A desktop notification fires when a session starts waiting; clicking it selects that session. **Alerts on** in the
 header turns them off. The browser asks for permission the first time.
 
+**Sound off** in the header turns on a short two-note sound with each alert, for when you are away from the
+screen. It is off by default and stays as you set it. After a reload, the browser allows sound only once you have
+clicked or pressed a key on the page.
+
+A screen reader hears how many sessions need you each time that number changes.
+
 ## Keyboard
 
 <kbd>?</kbd> in the header shows the same list.
@@ -114,6 +124,7 @@ header turns them off. The browser asks for permission the first time.
 | <kbd>Esc</kbd> | Leave the reply box |
 | <kbd>t</kbd> | Only this ticket, and back |
 | <kbd>.</kbd> | The Actions menu |
+| <kbd>/</kbd> | Filter the list; <kbd>Esc</kbd> clears it |
 
 ## Linking to a session
 
