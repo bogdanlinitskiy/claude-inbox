@@ -23,7 +23,7 @@ var (
 	// tmux turns '.' and ':' in session names into '_', and names are used unquoted in targets.
 	namePattern = regexp.MustCompile(`^[A-Za-z0-9_-]+$`)
 	// A pane id such as %12 names one pane on its server; sessions the app did not start are reached by it.
-	paneIDPattern = regexp.MustCompile(`^%[0-9]+$`)
+	paneIDPattern = regexp.MustCompile(`^%\d+$`)
 )
 
 // Client talks to one tmux server: the default one, a named socket (tmux -L) so tests stay off the user's own

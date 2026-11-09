@@ -2,7 +2,7 @@ package state
 
 import "time"
 
-// timeLayout is the house datetime format for API fields: UTC without an offset (api-guidelines.md).
+// timeLayout is the house datetime format for API fields: UTC without an offset (docs/architecture.md, "HTTP API").
 const timeLayout = "2006-01-02 15:04:05"
 
 // View is a session's state as the page receives it.

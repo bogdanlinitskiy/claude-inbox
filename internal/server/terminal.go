@@ -126,10 +126,15 @@ func (s *Server) pumpInput(ctx context.Context, conn *websocket.Conn, ptmx *os.F
 			continue
 		}
 		var c control
-		if json.Unmarshal(data, &c) != nil || c.Type != controlResize || !validSide(c.Cols) || !validSide(c.Rows) {
+		if json.Unmarshal(data, &c) != nil || c.Type != controlResize {
 			continue
 		}
-		if err := pty.Setsize(ptmx, &pty.Winsize{Cols: uint16(c.Cols), Rows: uint16(c.Rows)}); err != nil {
+		cols, colsOK := side(c.Cols)
+		rows, rowsOK := side(c.Rows)
+		if !colsOK || !rowsOK {
+			continue
+		}
+		if err := pty.Setsize(ptmx, &pty.Winsize{Cols: cols, Rows: rows}); err != nil {
 			return err
 		}
 	}
@@ -150,17 +155,24 @@ func (s *Server) detach(id string, cmd *exec.Cmd, ptmx *os.File) {
 }
 
 // initialSize reads ?cols=&rows= from the socket URL, falling back to a default for missing or invalid values.
-func initialSize(r *http.Request) (uint16, uint16) {
+func initialSize(r *http.Request) (width, height uint16) {
 	cols, colsErr := strconv.Atoi(r.URL.Query().Get("cols"))
 	rows, rowsErr := strconv.Atoi(r.URL.Query().Get("rows"))
-	if colsErr != nil || rowsErr != nil || !validSide(cols) || !validSide(rows) {
+	width, widthOK := side(cols)
+	height, heightOK := side(rows)
+	if colsErr != nil || rowsErr != nil || !widthOK || !heightOK {
 		return initialCols, initialRows
 	}
-	return uint16(cols), uint16(rows)
+	return width, height
 }
 
-func validSide(n int) bool {
-	return n > 0 && n <= maxSide
+// side reports whether n is a terminal dimension the page may ask for, and returns it as the PTY wants it. The
+// upper bound is what makes the conversion exact.
+func side(n int) (uint16, bool) {
+	if n <= 0 || n > maxSide {
+		return 0, false
+	}
+	return uint16(n), true
 }
 
 // terminalEnv drops the variables of any tmux the server itself runs in, so the client attaches instead of

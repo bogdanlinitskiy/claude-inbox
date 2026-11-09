@@ -1,1 +1,39 @@
 version: "2"
+
+# The default set (errcheck, govet, ineffassign, staticcheck, unused) plus the ones below. Each is here for a
+# class of bug this code could plausibly have: wrapped-error comparisons, leaked HTTP bodies, loop-variable
+# copies, and the shell-and-filesystem work the app does on the user's behalf.
+linters:
+  enable:
+    - bodyclose
+    - copyloopvar
+    - errorlint
+    - gocritic
+    - gosec
+    - revive
+
+  settings:
+    revive:
+      rules:
+        - name: exported
+          disabled: true
+    gocritic:
+      enabled-tags:
+        - diagnostic
+        - style
+      disabled-checks:
+        # ifElseChain: the state machine reads better as if/else than as a switch in several places.
+        - ifElseChain
+        # unnamedResult: this code names results only where the name explains something.
+        - unnamedResult
+
+  exclusions:
+    rules:
+      # The app exists to run tmux, git, claude and the user's own configured commands, and to read and write
+      # files under paths the user chose. gosec cannot tell those from an injection; the guards are the repo
+      # allowlist, the auth middleware and action.Validate.
+      - linters: [gosec]
+        text: "G204|G304"
+      # Tests write fixtures into their own temporary directories.
+      - path: _test\.go
+        linters: [gosec]

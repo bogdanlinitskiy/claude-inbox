@@ -35,9 +35,12 @@ state with one pure function, tested against a recorded run (`testdata/spike-hoo
 
 App events (`source: "app"`): `interrupt` (Esc sent), `denied` (No picked on a permission menu), `trust_prompt`
 (the trust screen is showing), `pane_gone` (tmux session vanished), `process_gone` (the `claude` process of a
-discovered session is gone), `closed`. Interrupt and Deny fire no hook, and the trust screen comes before any hook,
-so the app records them itself. Keeping them in the same file keeps one ordered history per session, so a restart
-replays exactly what happened.
+discovered session is gone), `closed`, `screen_prompt` (a menu no hook reported is on the screen; the payload is
+that menu as a question), `screen_prompt_gone` (that menu left the screen unanswered) and `answered` (an answer
+from the app took a menu off the screen before any hook said so). The last three carry a `seq`, so an event that
+arrives after the session has moved on changes nothing. Interrupt and Deny fire no hook, the trust screen comes
+before any hook, and Claude Code asks some things without a hook at all, so the app records them itself. Keeping
+them in the same file keeps one ordered history per session, so a restart replays exactly what happened.
 
 ## Hook modes
 
@@ -81,7 +84,7 @@ hook path they were started with.
 | `internal/state` | `Apply(Session, Event) Session`, the pure state machine, plus the view model sent to the page. |
 | `internal/session` | The manager: start, close, answers with delivery confirmation, event polling, pane, process, branch and trust checks, replay. |
 | `internal/tmux` | Thin wrapper over the `tmux` CLI. Targets are exact: `=name`, or a pane id `%<n>`. |
-| `internal/answer` | Turns an answer into a key sequence; reads menus and their numbers from a captured screen. |
+| `internal/answer` | Turns an answer into a key sequence; reads menus and their numbers from a captured screen. Everything that depends on how Claude Code words and draws that screen is in `wording.go`, so a release that changes the output has one file to re-read. |
 | `internal/proc` | Finds the `claude` process of a discovered session and tells whether it still runs: `/proc` on Linux, `ps` on macOS. |
 | `internal/transcript` | Reads Claude Code's transcripts (`~/.claude/projects/<folder>/<id>.jsonl`) for History and Preview. |
 | `internal/gitdiff` | Default-branch detection, merge base, `--numstat`, patch, untracked files, worktrees. |
@@ -112,6 +115,9 @@ Session state: `kind` (Trust, Idle, Working, Question, Permission, Done, Ended, 
 | `SessionEnd`, app `pane_gone`, `process_gone`, `closed` | Ended |
 | app `trust_prompt` | Trust |
 | app `interrupt`, app `denied` | Idle |
+| app `screen_prompt` | Question read from the screen, marked `fromScreen`; ignored when a hook already said what the session waits on |
+| app `screen_prompt_gone` for the current `seq` | back to the state the session was in before the menu appeared |
+| app `answered` for the current `seq` | Working after a question or a permission, Idle after the trust screen, else back as for `screen_prompt_gone` |
 | any other event | unchanged |
 
 ## Answers to keys
@@ -189,10 +195,25 @@ can frame the app (clickjacking).
 ## Following events
 
 One goroutine owned by `serve` polls the event files every 200 ms from their saved offsets, runs new lines through
-`state.Apply`, and publishes every change to the SSE hub. Each poll also lists `sessions/`, so a discovered session
-appears within one poll of its first event. Every 5 s the app checks that each app session's tmux pane still
-exists (`pane_gone` otherwise) and that each discovered session's `claude` process still runs (`process_gone`). A
-session that reaches Ended is archived and leaves the list; its conversation is then in History.
+`state.Apply`, and publishes every change to the SSE hub. Every second it also lists `sessions/`, so a discovered
+session appears within a second of its first event; that listing is separate from the 200 ms poll because reading
+the events of sessions already on the list is what has to be prompt. Every 5 s the app checks that each app
+session's tmux pane still exists (`pane_gone` otherwise) and that each discovered session's `claude` process still
+runs (`process_gone`). A session that reaches Ended is archived and leaves the list; its conversation is then in
+History.
+
+Hooks do not cover everything Claude Code asks: a new MCP server, a usage limit, and other prompts reach the
+screen with no hook behind them. So the app reads the screen (`capture-pane`) of each session that runs in tmux,
+waits on nothing a hook reported, has no answer on its way, and has been quiet for 2 s. A numbered menu there
+becomes a `screen_prompt`, which the page shows as a question tagged "from screen"; when the menu leaves the
+screen unanswered, a `screen_prompt_gone` puts the session back where it was. A session whose screen keeps
+showing the same menu is not recorded again.
+
+The wait between those reads starts at 2 s and doubles, up to 30 s, for every read that finds nothing — a session
+left finished overnight costs a handful of reads instead of one every two seconds. Anything worth watching puts it
+straight back to 2 s: a menu on the screen, a question the session is already showing (whose leaving has to be
+noticed quickly), or any event at all. The cost is that a menu appearing on a long-quiet session is seen up to
+30 s late.
 
 On start-up `serve` replays every file and publishes nothing until the replay is done, so no stale alerts fire
 (only `live` changes alert).

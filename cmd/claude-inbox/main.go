@@ -47,6 +47,9 @@ const (
 	deliveryTimeout     = 3 * time.Second
 	keyPause            = 300 * time.Millisecond
 	pollInterval        = 200 * time.Millisecond
+	// discoverInterval only has to notice a new session file; the events of the sessions already listed are
+	// what pollInterval is for.
+	discoverInterval = time.Second
 	paneCheckInterval   = 5 * time.Second
 	screenCheckInterval = 2 * time.Second
 	readHeaderTimeout   = 10 * time.Second
@@ -225,6 +228,7 @@ func runServe(args []string) error {
 		DeliveryTimeout:     deliveryTimeout,
 		KeyPause:            keyPause,
 		PollInterval:        pollInterval,
+		DiscoverInterval:    discoverInterval,
 		PaneCheckInterval:   paneCheckInterval,
 		ScreenCheckInterval: screenCheckInterval,
 	})

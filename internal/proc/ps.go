@@ -45,6 +45,7 @@ func parsePS(out []byte, loc *time.Location) (map[int]psEntry, error) {
 		if err != nil {
 			return nil, fmt.Errorf("parse ps start of %d: %w", pid, err)
 		}
+		//nolint:gosec // a process start time is never before 1970, so the conversion cannot go negative.
 		table[pid] = psEntry{ppid: ppid, start: uint64(started.Unix()), args: strings.Join(fields[2+lstartFields:], " ")}
 	}
 	return table, nil

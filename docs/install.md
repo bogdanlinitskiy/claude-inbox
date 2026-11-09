@@ -3,7 +3,8 @@
 ## Requirements
 
 - Linux or macOS. On macOS the app builds and its macOS-only code is unit-tested, but it has not been run on a Mac
-  yet; reports welcome.
+  yet; reports welcome. On Windows it runs under WSL, see [On Windows, with WSL](#on-windows-with-wsl); it does not
+  run on Windows itself, because it drives `tmux` and reads `/proc`.
 - `tmux`, `git` and `claude` (Claude Code) on `PATH`. `serve` refuses to start without them.
 - A browser for the page. `serve --open` uses `xdg-open` (`open` on macOS).
 - To build: Go 1.26, or Docker for `make`.
@@ -27,6 +28,45 @@ It builds in Docker and installs `claude-inbox` and `claude-tmux` to `~/.local/b
 
 Keep the binary where you installed it: a running session calls its hook at the path it was started with, so a
 moved binary leaves those sessions unable to report. `claude-inbox version` prints what you run.
+
+## On Windows, with WSL
+
+The app runs inside a WSL2 distribution, and you use it from your Windows browser.
+
+1. Install WSL2 and a distribution, if you have none:
+
+   ```powershell
+   wsl --install -d Ubuntu
+   ```
+
+2. In the WSL shell, install the requirements and Claude Code:
+
+   ```bash
+   sudo apt update && sudo apt install -y tmux git
+   ```
+
+3. Install `claude-inbox` the same way as on Linux, with Go or with `make install` from a clone.
+
+4. Start it:
+
+   ```bash
+   claude-inbox serve
+   ```
+
+Open the printed link in your Windows browser. WSL2 forwards `127.0.0.1` from the distribution to Windows, so
+`http://127.0.0.1:7788` reaches the app with no extra setup. Leave the shell running; closing it stops `serve`,
+though the Claude sessions keep running in tmux.
+
+Two things differ from a plain Linux install:
+
+- `serve --open` calls `xdg-open`, which a bare WSL distribution does not have. Either open the printed link by
+  hand, or install [`wslu`](https://github.com/wslutilities/wslu) (`sudo apt install wslu`) and link `wslview` as
+  `xdg-open`.
+- Keep the repositories you work in inside the WSL filesystem (`~/code`, not `/mnt/c/...`). Git and Claude Code
+  are much slower across `/mnt/c`, and file watching there is unreliable.
+
+To open a session's folder in a Windows editor, point `--ide` at its WSL launcher, for example `code` for
+VS Code with the WSL extension, which already resolves WSL paths.
 
 ## Where things live
 
