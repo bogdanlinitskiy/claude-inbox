@@ -28,9 +28,9 @@ press <kbd>t</kbd>, to narrow the list to that ticket and see how its sessions a
 press <kbd>t</kbd> again to clear it. Which id counts as a ticket is set by `ticket_pattern`, see
 [configuration.md](configuration.md).
 
-The filter box above the list narrows it to rows whose repository, branch, ticket, title or text contains what you
-type. <kbd>/</kbd> focuses it; <kbd>Esc</kbd> clears it. History has its own search box, so the filter box hides
-there.
+The filter box at the top of the list narrows it to rows whose repository, branch, ticket, title or text contains
+what you type. <kbd>/</kbd> focuses it; <kbd>Esc</kbd> clears it. In History the same box searches past
+conversations instead.
 
 ## Answering
 
