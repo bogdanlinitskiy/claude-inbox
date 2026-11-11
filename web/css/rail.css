@@ -1,0 +1,189 @@
+@layer rail {
+  /* One panel: the search box on top, outside the scroller, so the scrollbar starts under it and redrawing rows
+     never takes the caret. */
+  .rail {
+    min-height: 0; overflow: hidden;
+    display: grid; grid-template-rows: auto minmax(0, 1fr);
+    background: var(--surface-1);
+    border: 1px solid var(--line); border-radius: var(--r-panel);
+    box-shadow: var(--lift-1);
+  }
+
+  /* One scrolling surface with sticky group headers — not cards inside cards. */
+  .list {
+    min-height: 0; overflow: auto;
+    scrollbar-gutter: stable; overscroll-behavior: contain;
+    display: grid; align-content: start;
+    /* The rail answers to its own width, not the window's: it is a resizable split and it is embeddable. */
+    container: rail / inline-size;
+  }
+
+  /* Too narrow for the branch to say anything: six characters and an ellipsis is worse than nothing, and the
+     detail header carries it anyway. */
+  @container rail (max-width: 380px) {
+    .row-branch { display: none; }
+    /* The split across the states is the readout; the total is implied by it. */
+    .scope .scope-n { display: none; }
+  }
+
+  .group { display: contents; }
+
+  .g-head {
+    position: sticky; top: 0; z-index: 2;
+    display: flex; align-items: center; gap: 9px;
+    padding: 9px 14px 7px;
+    background: color-mix(in oklab, var(--surface-1) 86%, transparent);
+    backdrop-filter: var(--blur); -webkit-backdrop-filter: var(--blur);
+    border-bottom: 1px solid var(--line);
+    font: 600 var(--t-xs) var(--font-mono); letter-spacing: 0.03em; color: var(--faint);
+
+    & .tid { color: var(--muted); }
+    & .g-title {
+      flex: 1; min-width: 0; font: 500 var(--t-xs) var(--font-ui); color: var(--faint);
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    & .g-count { font-variant-numeric: tabular-nums; white-space: nowrap; }
+
+    /* A state block names itself in its own colour, with the same dot the filters use. */
+    & .g-label {
+      flex: 1; min-width: 0; display: inline-flex; align-items: center; gap: 7px;
+      font: 650 var(--t-xs) var(--font-mono); letter-spacing: 0.04em; color: var(--tone);
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+
+      &::before { content: ""; width: 5px; height: 5px; border-radius: 50%; background: var(--tone); flex: none; }
+    }
+  }
+
+  .g-head { --tone: var(--muted); }
+  .g-head.g-needs { --tone: var(--wait); }
+  .g-head.g-working { --tone: var(--work); }
+  .g-head.g-done { --tone: var(--done); }
+
+  /* The ticket view's readout, above the blocks. It outranks the block headings, which stick beneath it. */
+  .scope {
+    position: sticky; top: 0; z-index: 3;
+    display: flex; align-items: center; gap: var(--s2); height: 38px; padding: 0 14px;
+    background: var(--surface-2);
+    border-bottom: 1px solid var(--line-2);
+
+    & .tid { font: 650 var(--t-sm) var(--font-mono); color: var(--fg); }
+    & .scope-n { font: 500 var(--t-xs) var(--font-mono); color: var(--faint); white-space: nowrap; }
+    & .scope-mix {
+      flex: 1; min-width: 0; font: 500 var(--t-xs) var(--font-ui); color: var(--muted);
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    & .scope-x {
+      flex: none; padding: 3px 9px;
+      border: 1px solid var(--line-2); border-radius: var(--r-pill);
+      background: var(--surface-1); color: var(--muted); font: 600 var(--t-xs) var(--font-ui);
+      &:hover { color: var(--fg); border-color: var(--accent); }
+    }
+  }
+  .list:has(.scope) .g-head { top: 38px; }
+
+  .row {
+    --tone: transparent;
+    position: relative; display: grid; gap: 3px; width: 100%; text-align: left;
+    border: 0; border-bottom: 1px solid var(--line);
+    background: transparent; color: inherit;
+    padding: 10px 14px 11px 16px;
+    transition: background-color 120ms ease;
+
+    /* The bar on the left carries the state, so it reads from across the screen. */
+    &::before { content: ""; position: absolute; inset-block: 0; left: 0; width: 3px; background: var(--tone); }
+    &:hover { background: color-mix(in oklab, var(--fg) 4%, transparent); }
+    &[aria-current="true"] {
+      background: var(--surface-2);
+      box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--accent) 45%, transparent);
+      &::before { background: var(--accent); }
+    }
+  }
+
+  /* Needs you: a steady amber edge and a quiet tint. The row flashes twice when it arrives and then holds —
+     a permanent pulse is at its most distracting exactly while you are reading the question. */
+  .row.r-needs {
+    --tone: var(--wait);
+    background: color-mix(in oklab, var(--wait) 7%, transparent);
+    animation: land 1.1s ease-out 2;
+    &::before { box-shadow: 0 0 10px -1px var(--wait); }
+    & .row-text { color: var(--fg); font-weight: 500; }
+  }
+  @keyframes land { 40% { background-color: color-mix(in oklab, var(--wait) 22%, transparent); } }
+
+  /* Working: one hairline sweep along the bottom edge. */
+  .row.r-work {
+    --tone: color-mix(in oklab, var(--work) 70%, transparent);
+    &::after {
+      content: ""; position: absolute; left: 16px; right: 14px; bottom: -1px; height: 1.5px;
+      background: linear-gradient(90deg, transparent, var(--work), transparent) 0 0 / 45% 100% no-repeat;
+      animation: sweep 1.9s ease-in-out infinite;
+    }
+  }
+  @keyframes sweep { from { background-position: -50% 0; } to { background-position: 150% 0; } }
+
+  .row.r-done { --tone: color-mix(in oklab, var(--done) 55%, transparent); }
+  .row.r-ended {
+    opacity: 0.55;
+    &:hover, &[aria-current="true"] { opacity: 1; }
+  }
+
+  .row-top { display: flex; align-items: center; gap: var(--s2); min-width: 0; }
+  .repo { flex: none; font-weight: 650; letter-spacing: -0.01em; }
+
+  /* A live row leads with its title: one line, cut with an ellipsis, sized to the rail's width. */
+  .row-head { display: flex; align-items: baseline; gap: var(--s2); min-width: 0; }
+  .row-title {
+    flex: 0 1 auto; min-width: 0;
+    font-size: clamp(var(--t-md), 4cqi, var(--t-lg)); font-weight: 650; letter-spacing: -0.01em;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .row-repo { flex: none; font: 600 var(--t-xs) var(--font-ui); color: var(--muted); white-space: nowrap; }
+
+  /* The branch holds the width the state pill used to take. It is the one fact you act on outside the app,
+     so it ellipsises rather than wrapping the strip. */
+  .row-branch {
+    flex: 0 1 auto; min-width: 0;
+    font: 500 var(--t-xs) var(--font-mono); color: var(--faint);
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+
+  /* Only on a ticket that has more than one live session. Neutral until you reach for it: the accent belongs
+     to the mark and to one button per view. */
+  .row-tix {
+    flex: none; padding: 1px 8px; border-radius: var(--r-pill);
+    border: 1px solid var(--line-2); background: var(--surface-2);
+    font: 600 var(--t-xs) var(--font-mono); color: var(--muted); white-space: nowrap;
+    transition: color 120ms ease, border-color 120ms ease;
+
+    &:hover { color: var(--accent); border-color: color-mix(in oklab, var(--accent) 55%, transparent); }
+  }
+  .age { margin-left: auto; font: 500 var(--t-xs) var(--font-mono); font-variant-numeric: tabular-nums; color: var(--faint); white-space: nowrap; }
+  .row-text {
+    min-width: 0; font-size: var(--t-sm); color: var(--muted);
+    display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+    overflow-wrap: anywhere;
+  }
+  .row-flag { font: 600 var(--t-xs) var(--font-ui); color: var(--fail); }
+  .row-tag { font: 500 var(--t-xs) var(--font-mono); color: var(--faint); white-space: nowrap; }
+
+  /* An empty state says what is true, then what to do about it. */
+  .empty-list {
+    padding: 32px var(--s4); margin: var(--s4); text-align: center; color: var(--faint);
+    border: 1px dashed var(--line-2); border-radius: var(--r-panel);
+    display: grid; gap: 5px; justify-items: center;
+
+    & b { font: 650 var(--t-lg) var(--font-ui); letter-spacing: -0.01em; color: var(--muted); }
+    & span { max-width: 42ch; font-size: var(--t-sm); text-wrap: pretty; }
+  }
+
+  /* The live filter and the History search share this spot; one of them shows. */
+  .rail-search {
+    padding: var(--s2); border-bottom: 1px solid var(--line);
+    & input {
+      width: 100%; height: 34px; padding: 0 11px;
+      border: 1px solid var(--line-2); border-radius: var(--r-control);
+      background: var(--surface-2); color: var(--fg); box-shadow: var(--lift-1);
+      &:focus { outline: 0; border-color: var(--accent); box-shadow: var(--lift-1), 0 0 0 3px color-mix(in oklab, var(--accent) 22%, transparent); }
+    }
+  }
+}

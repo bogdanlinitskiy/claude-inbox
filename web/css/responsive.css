@@ -1,0 +1,28 @@
+/* The detail pane asks its own width, not the viewport's, so it also behaves when the split is embedded. */
+
+@container (max-width: 560px) {
+  .d-tools { margin-left: 0; width: 100%; }
+}
+
+@media (max-width: 880px) {
+  .main { grid-template-columns: minmax(0, 1fr); }
+  .main.show-detail .rail { display: none; }
+  .main:not(.show-detail) .detail { display: none; }
+  .back { display: inline-flex; }
+  .d-tools { margin-left: 0; }
+  .keys-btn { display: none; }
+  .top-actions { margin-left: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation: none !important; transition-duration: 1ms !important; }
+}
+
+/* Switching sessions: only the detail pane animates. The default whole-page cross-fade is turned off, so the
+   rail, the top bar and the row you just clicked stay put while the pane changes. Unlayered on purpose: these
+   belong to the view-transition pseudo tree, not to any component. */
+::view-transition-old(root),
+::view-transition-new(root) { animation: none; }
+
+::view-transition-old(detail),
+::view-transition-new(detail) { animation-duration: 160ms; }

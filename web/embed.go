@@ -4,5 +4,5 @@ package web
 
 import "embed"
 
-//go:embed index.html tokens.css app.css app.js vendor/xterm.js vendor/xterm.css vendor/addon-fit.js vendor/fonts/*.css vendor/fonts/*.woff2
+//go:embed index.html css/*.css js/*.js vendor/xterm.js vendor/xterm.css vendor/addon-fit.js vendor/fonts/*.css vendor/fonts/*.woff2
 var Files embed.FS

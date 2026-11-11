@@ -1,0 +1,98 @@
+@layer answer {
+  .reply { border-top: 1px solid var(--line); padding: var(--s3) 16px 14px; display: grid; gap: 10px; }
+
+  /* The ask card is the surface this app exists for, and the one place where being loud is correct. */
+  .ask {
+    --tone: var(--wait);
+    position: relative; overflow: clip;
+    display: grid; gap: var(--s2);
+    padding: 12px 15px 13px; border-radius: var(--r-panel);
+    background: var(--surface-1);
+    box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--tone) 32%, transparent);
+
+    &::before { content: ""; position: absolute; inset-block: 0; left: 0; width: 3px; background: var(--tone); }
+    &.k-unknown, &.failed { --tone: var(--fail); }
+    &.k-done, &.k-idle { --tone: var(--faint); }
+    &.k-done.failed { --tone: var(--fail); }
+  }
+
+  .ask-head {
+    display: flex; align-items: center; flex-wrap: wrap; gap: 9px;
+
+    & .who { font: 600 var(--t-md) var(--font-ui); color: var(--tone); }
+    & .tool {
+      font: 500 var(--t-xs) var(--font-mono); color: var(--muted);
+      padding: 1px 7px; border-radius: var(--r-pill); background: var(--surface-2);
+    }
+    & .ago { margin-left: auto; font: 500 var(--t-xs) var(--font-mono); color: var(--faint); }
+  }
+
+  .ask-text {
+    margin: 0; font-size: 14.5px; font-weight: 500; max-width: 74ch;
+    white-space: pre-wrap; overflow-wrap: anywhere; text-wrap: pretty;
+    max-height: 9.5em; overflow: auto;
+  }
+  .ask-note { margin: 0; font-size: var(--t-sm); color: var(--faint); }
+
+  .opt-list {
+    margin: 0; padding-left: 1.4em; display: grid; gap: var(--s1);
+    & .note { display: block; font-size: var(--t-sm); color: var(--muted); }
+  }
+
+  .cmd {
+    margin: 0; padding: 9px 11px; border-radius: var(--r-control);
+    background: var(--term-bg); color: var(--term-fg);
+    font: 500 12.5px/1.5 var(--font-mono); overflow-x: auto; white-space: pre;
+    box-shadow: inset 0 0 0 1px oklch(100% 0 0 / 7%);
+  }
+
+  .opts { display: flex; flex-wrap: wrap; gap: 7px; }
+
+  .opt {
+    display: inline-flex; flex-wrap: wrap; align-items: center; gap: var(--s1) var(--s2);
+    max-width: 100%; text-align: left;
+    padding: 7px 12px 7px 8px;
+    border: 1px solid var(--line-2); border-radius: var(--r-control);
+    background: var(--surface-2); color: var(--fg);
+    font: 600 var(--t-md) var(--font-ui);
+    box-shadow: var(--lift-1);
+    transition: border-color 120ms ease, background-color 120ms ease;
+
+    &:hover:not(:disabled) { border-color: var(--accent); background: var(--surface-3); }
+    & .note { font-weight: 400; font-size: var(--t-sm); color: var(--faint); }
+
+    /* Allow and Deny must not be one tab-stop apart in identical clothes. */
+    &[data-allow="true"], &[data-trust="true"] {
+      border-color: color-mix(in oklab, var(--done) 45%, transparent);
+      &:hover:not(:disabled) { border-color: var(--done); background: color-mix(in oklab, var(--done) 12%, transparent); }
+    }
+    &[data-allow="false"], &[data-trust="false"] {
+      border-color: color-mix(in oklab, var(--fail) 40%, transparent);
+      &:hover:not(:disabled) { border-color: var(--fail); background: color-mix(in oklab, var(--fail) 12%, transparent); }
+    }
+  }
+
+  .send {
+    display: flex; align-items: flex-end; gap: var(--s2);
+
+    & textarea {
+      flex: 1; min-width: 0;
+      field-sizing: content;            /* grows with the text; no measuring code */
+      min-height: 38px; max-height: 40vh; overflow-y: auto; resize: none;
+      padding: 9px 12px;
+      border: 1px solid var(--line-2); border-radius: var(--r-control);
+      background: var(--surface-2); color: var(--fg); box-shadow: var(--lift-1);
+      &::placeholder { color: var(--faint); }
+      &:focus {
+        outline: 0; border-color: var(--accent);
+        box-shadow: var(--lift-1), 0 0 0 3px color-mix(in oklab, var(--accent) 22%, transparent);
+      }
+    }
+    & .btn { height: 38px; }
+  }
+
+  .delivery {
+    font: 500 var(--t-sm) var(--font-ui); color: var(--muted);
+    &.failed { color: var(--fail); font-weight: 600; }
+  }
+}

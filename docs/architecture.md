@@ -90,7 +90,7 @@ hook path they were started with.
 | `internal/gitdiff` | Default-branch detection, merge base, `--numstat`, patch, untracked files, worktrees. |
 | `internal/action` | The configured actions: validation, the `{input}` placeholder, and running a `run` action's command (own process group, timeout, output tail). |
 | `internal/server` | Routes, auth middleware, the SSE hub, session handlers, the terminal WebSocket. |
-| `web/` | `index.html`, `app.css`, `app.js` and vendored xterm.js, embedded with `go:embed`. |
+| `web/` | `index.html`, its stylesheets in `css/` (one per cascade layer), its scripts in `js/` (one per feature, loaded in order) and vendored xterm.js, embedded with `go:embed`. |
 
 Third-party modules: `github.com/creack/pty` (a PTY for `tmux attach`), `github.com/coder/websocket` (terminal
 socket), `github.com/stretchr/testify` (tests). Everything else is the standard library.

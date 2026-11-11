@@ -1,0 +1,16 @@
+@layer layout {
+  .app {
+    height: 100%;
+    display: grid; grid-template-rows: auto auto minmax(0, 1fr); gap: var(--s3);
+    padding-block: var(--s3);
+    padding-left: max(16px, env(safe-area-inset-left, 0px));
+    padding-right: max(16px, env(safe-area-inset-right, 0px));
+  }
+
+  /* Rows are pinned: a hidden banner leaves the grid, and the main area would slide into its content row. */
+  .main {
+    grid-row: 3;
+    display: grid; grid-template-columns: minmax(300px, 380px) minmax(0, 1fr);
+    gap: var(--s3); min-height: 0;
+  }
+}
