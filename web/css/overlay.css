@@ -1,0 +1,83 @@
+@layer overlay {
+  /* ---------- Toasts ---------- */
+
+  .toasts {
+    position: fixed; z-index: 20; display: grid; gap: var(--s2);
+    right: max(16px, env(safe-area-inset-right, 0px));
+    bottom: calc(16px + env(safe-area-inset-bottom, 0px));
+    width: min(350px, calc(100vw - 32px));
+  }
+
+  .toast {
+    position: relative; overflow: clip;
+    width: 100%; text-align: left; border: 0;
+    display: grid; gap: 2px; padding: 11px 13px;
+    border-radius: var(--r-panel);
+    background: var(--surface-3); color: var(--fg);
+    box-shadow: var(--pop-shadow), inset 0 0 0 1px var(--line-2);
+    animation: rise 0.22s ease-out;
+
+    &::before { content: ""; position: absolute; inset-block: 0; left: 0; width: 3px; background: var(--accent); }
+    & b { font: 650 var(--t-md) var(--font-ui); }
+    /* pre-wrap: a run action's output keeps its lines. */
+    & span {
+      font-size: var(--t-sm); color: var(--muted); overflow-wrap: anywhere; white-space: pre-wrap;
+      max-height: 12em; overflow: hidden;
+    }
+  }
+  @keyframes rise { from { translate: 0 8px; opacity: 0; } }
+
+  /* ---------- New session dialog ---------- */
+  /* A real <dialog>: the browser owns the backdrop, the focus trap, Esc, and the inertness of the page. */
+
+  .modal {
+    margin: auto; padding: 0; width: min(440px, calc(100% - 32px));
+    border: 0; border-radius: var(--r-panel);
+    background: var(--surface-1); color: var(--fg);
+    box-shadow: var(--pop-shadow), inset 0 0 0 1px var(--line-2);
+    opacity: 0; scale: 0.97; translate: 0 6px;
+    transition: opacity 180ms ease, scale 180ms ease, translate 180ms ease,
+                overlay 180ms allow-discrete, display 180ms allow-discrete;
+
+    &[open] { opacity: 1; scale: 1; translate: 0 0; }
+    &::backdrop {
+      background: var(--scrim); backdrop-filter: blur(3px); opacity: 0;
+      transition: opacity 180ms ease, overlay 180ms allow-discrete, display 180ms allow-discrete;
+    }
+    &[open]::backdrop { opacity: 1; }
+  }
+  @starting-style {
+    .modal[open] { opacity: 0; scale: 0.97; translate: 0 6px; }
+    .modal[open]::backdrop { opacity: 0; }
+  }
+
+  .modal-body { display: grid; gap: var(--s3); padding: 17px 18px 18px; }
+  .modal h3 { margin: 0; font: 700 17px var(--font-display); letter-spacing: -0.015em; }
+  .modal .hint { margin: 0; font-size: var(--t-sm); color: var(--faint); }
+
+  .field {
+    display: grid; gap: 5px;
+    & label { font: 600 var(--t-sm) var(--font-ui); color: var(--muted); }
+    & :is(input, select, textarea) {
+      min-width: 0; padding: var(--s2) 10px;
+      border: 1px solid var(--line-2); border-radius: var(--r-control);
+      background: var(--surface-2); color: var(--fg); box-shadow: var(--lift-1);
+    }
+    & :is(input, select) { height: 34px; padding-block: 0; }
+    & textarea { field-sizing: content; min-height: 56px; max-height: 40vh; resize: none; }
+    & :is(input, select, textarea):focus {
+      outline: 0; border-color: var(--accent);
+      box-shadow: var(--lift-1), 0 0 0 3px color-mix(in oklab, var(--accent) 22%, transparent);
+    }
+    & .hint { margin: 0; font-size: var(--t-xs); color: var(--faint); }
+  }
+
+  .form-error { margin: 0; color: var(--fail); font-size: var(--t-sm); font-weight: 500; }
+
+  .check {
+    display: flex; align-items: center; gap: var(--s2); font-size: var(--t-md); color: var(--muted);
+    & input { accent-color: var(--accent); width: 15px; height: 15px; }
+  }
+
+  .modal-actions { display: flex; justify-content: flex-end; gap: var(--s2); }
+}

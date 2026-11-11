@@ -1,0 +1,81 @@
+@layer actions {
+  /* Primary actions as chips over the reply box, all of them in the searchable menu.
+     ↵ marks an action that types into the session, $ one that runs a command. */
+  .act-bar {
+    display: flex; flex-wrap: wrap; align-items: center; gap: 6px;
+    & .lbl { font: 500 var(--t-xs) var(--font-mono); color: var(--faint); margin-right: var(--s1); }
+  }
+  .glyph { font: 600 10px var(--font-mono); color: var(--faint); }
+
+  .chip {
+    display: inline-flex; align-items: center; gap: 6px;
+    height: 26px; padding: 0 10px;
+    border: 1px solid var(--line); border-radius: var(--r-pill);
+    background: var(--surface-2); color: var(--muted);
+    font: 600 var(--t-sm) var(--font-ui); white-space: nowrap;
+
+    &:hover:not(:disabled) { color: var(--fg); border-color: var(--line-2); background: var(--surface-3); }
+    &.run { border-style: dashed; }
+    &.armed { background: color-mix(in oklab, var(--fail) 14%, transparent); border-color: var(--fail); color: var(--fail); }
+    &.more {
+      color: var(--accent);
+      border-color: color-mix(in oklab, var(--accent) 45%, transparent);
+      background: color-mix(in oklab, var(--accent) 10%, transparent);
+    }
+  }
+
+  .act-menu {
+    position: fixed; z-index: 25; width: min(430px, calc(100vw - 32px));
+    padding: 5px; border-radius: var(--r-panel);
+    background: var(--surface-1);
+    box-shadow: var(--pop-shadow), inset 0 0 0 1px var(--line-2);
+    display: grid; gap: 2px;
+
+    & .head { padding: var(--s1) 10px 2px; font: 500 var(--t-xs) var(--font-mono); color: var(--faint); }
+
+    & .search {
+      display: flex; align-items: center; gap: 9px; height: 34px; margin: 2px 2px 5px; padding: 0 11px;
+      border: 1px solid var(--line-2); border-radius: var(--r-control); background: var(--surface-2);
+      &:focus-within { border-color: var(--accent); box-shadow: 0 0 0 3px color-mix(in oklab, var(--accent) 22%, transparent); }
+      & input { flex: 1; min-width: 0; border: 0; background: none; outline: 0; }
+      & .cnt { font: 500 var(--t-xs) var(--font-mono); color: var(--faint); white-space: nowrap; }
+    }
+
+    & .items { max-height: min(360px, 50vh); overflow: auto; display: grid; gap: 2px; }
+
+    & .mi {
+      display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 1px 10px; align-items: center;
+      padding: 7px 10px; border-radius: var(--r-control); cursor: pointer;
+
+      &:hover { background: var(--surface-2); }
+      &.hl { background: var(--surface-3); box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--accent) 40%, transparent); }
+      &.off { opacity: 0.5; cursor: default; }
+      & b { font: 600 var(--t-md) var(--font-ui); min-width: 0; overflow-wrap: anywhere; }
+      & .sub { grid-column: 1; font: 500 var(--t-xs) var(--font-mono); color: var(--faint); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+      & .side { grid-row: 1 / span 2; grid-column: 2; align-self: center; display: flex; gap: 7px; align-items: center; }
+      & .why { grid-column: 1 / -1; font: 500 var(--t-xs) var(--font-ui); color: var(--wait); }
+      & .inp {
+        grid-column: 1 / -1; display: flex; gap: 6px; margin-top: 6px;
+        & input {
+          flex: 1; min-width: 0; height: 28px; padding: 0 var(--s2);
+          border: 1px solid var(--accent); border-radius: var(--r-control);
+          background: var(--surface-2); font: 500 12.5px var(--font-mono);
+          &:focus { outline: 0; box-shadow: 0 0 0 3px color-mix(in oklab, var(--accent) 22%, transparent); }
+        }
+      }
+    }
+
+    & .none { padding: var(--s3) 10px; color: var(--faint); }
+    & .foot {
+      border-top: 1px solid var(--line); margin-top: var(--s1); padding: 7px 10px 4px;
+      font: 500 var(--t-xs) var(--font-mono); color: var(--faint);
+      display: flex; gap: 12px; flex-wrap: wrap; align-items: center;
+    }
+  }
+
+  .kind {
+    font: 600 10.5px var(--font-mono); padding: 2px 7px; border-radius: var(--r-pill);
+    &.send { color: var(--work); background: color-mix(in oklab, var(--work) 15%, transparent); }
+    &.run { color: var(--info); background: color-mix(in oklab, var(--info) 15%, transparent); }
+  }
+}

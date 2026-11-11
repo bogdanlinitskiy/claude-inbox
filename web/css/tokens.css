@@ -9,8 +9,8 @@
 
    The rule the palette follows: state colour is the only saturated colour in normal use, because the whole
    job of this app is to show which session is blocked. --accent is identity, and appears on the mark and on
-   one button per view. app.css uses only the names defined here. */
-@import url("vendor/fonts/fonts.css");
+   one button per view. The other stylesheets use only the names defined here. */
+@import url("../vendor/fonts/fonts.css");
 
 :root {
   color-scheme: light dark;

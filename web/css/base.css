@@ -1,0 +1,58 @@
+/* Layout: one-screen app. Top bar = counts that double as filters. Left = the session rail, one surface with
+   sticky group headers. Right = the selected session: its live terminal and diff, with the answer controls
+   pinned underneath.
+
+   Every value comes from tokens.css; the block below only names what this page needs on top of it.
+
+   The cascade is ordered by @layer, so a component rule can never be outranked by an earlier base rule by
+   accident, and responsive.css, unlayered, always wins without !important. */
+
+@layer base, layout, chrome, rail, detail, answer, actions, overlay;
+
+@layer base {
+  :root {
+    --term-pad: 10px;
+  }
+
+  * { box-sizing: border-box; }
+  html, body { height: 100%; }
+
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--fg);
+    font: var(--t-md)/1.45 var(--font-ui);
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* Framed by the embed origin, its background shows through. */
+  html.framed body { background: transparent; }
+  /* Framed: held for one beat while the host answers home:theme?, so the first paint is its theme and not
+     a flash of the wrong one. js/theme.js drops the class on the answer, or after its timeout. */
+  html.theme-wait body { visibility: hidden; }
+  /* The framing page's tab already names the app, and it owns the theme. */
+  html.framed .brand, html.framed .theme-btn { display: none; }
+
+  button, input, select, textarea { font: inherit; color: inherit; }
+  button { cursor: pointer; }
+  button:disabled { cursor: default; opacity: 0.55; }
+  select option, select optgroup { background: var(--surface-1); color: var(--fg); }
+  select optgroup { color: var(--faint); font-weight: 600; }
+
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  * { scrollbar-width: thin; scrollbar-color: var(--line-2) transparent; }
+  [hidden] { display: none !important; }
+
+  .mono, .tid { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+  code { font: 0.92em var(--font-mono); }
+  .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+
+  kbd {
+    display: inline-grid; place-items: center; min-width: 18px; height: 18px; padding: 0 5px;
+    border-radius: 5px; background: var(--surface-3); color: var(--muted);
+    font: 600 11px/1 var(--font-mono);
+    box-shadow: inset 0 0 0 1px var(--line-2);
+  }
+
+  mark { background: color-mix(in oklab, var(--accent) 24%, transparent); color: var(--fg); border-radius: 3px; padding: 0 1px; }
+}

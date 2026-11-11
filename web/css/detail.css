@@ -1,0 +1,174 @@
+@layer detail {
+  .detail {
+    view-transition-name: detail;
+    min-width: 0; min-height: 0; overflow: hidden;
+    display: grid; grid-template-columns: minmax(0, 1fr); grid-template-rows: auto auto minmax(0, 1fr) auto;
+    background: var(--surface-1);
+    border: 1px solid var(--line); border-radius: var(--r-panel);
+    box-shadow: var(--lift-1);
+    container-type: inline-size;
+
+    &.empty { grid-template-rows: minmax(0, 1fr); }
+  }
+
+  /* Title and state on one line; every fact about the session in one mono strip beneath it. */
+  .d-head {
+    display: grid; gap: var(--s2); padding: 13px 16px 11px;
+    &:empty { display: none; }
+  }
+  .tabs:empty, .reply:empty { display: none; }
+
+  .back { display: none; justify-self: start; }
+
+  .d-title {
+    display: flex; flex-wrap: wrap; align-items: center; gap: var(--s1) 10px; min-width: 0;
+
+    & h2 { margin: 0; font: 700 var(--t-xl) var(--font-display); letter-spacing: -0.02em; text-wrap: balance; }
+    & .tid { font: 500 var(--t-sm) var(--font-mono); color: var(--faint); }
+    & .tid.ticket {
+      color: var(--accent); padding: 1px 8px; border-radius: var(--r-pill);
+      background: color-mix(in oklab, var(--accent) 12%, transparent);
+      box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--accent) 30%, transparent);
+    }
+  }
+
+  .d-tools { margin-left: auto; display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+  .act-sep { width: 1px; align-self: stretch; background: var(--line-2); margin-inline: 2px; }
+
+  .d-meta {
+    display: flex; flex-wrap: wrap; align-items: center; gap: 5px 14px;
+    font: 500 var(--t-xs) var(--font-mono); font-variant-numeric: tabular-nums; color: var(--faint);
+  }
+
+  .rename {
+    flex: 1; min-width: 12em;
+    & input {
+      width: 100%; font: 700 var(--t-xl) var(--font-display); letter-spacing: -0.02em; color: inherit;
+      border: 1px solid var(--accent); border-radius: var(--r-control);
+      background: var(--surface-2); padding: 2px 8px;
+      &:focus { outline: 0; box-shadow: 0 0 0 3px color-mix(in oklab, var(--accent) 22%, transparent); }
+    }
+  }
+
+  /* ---------- Tabs ---------- */
+
+  .tabs {
+    display: flex; gap: 2px; padding: 0 10px;
+    border-bottom: 1px solid var(--line);
+    overflow-x: auto; overflow-y: hidden;
+  }
+  .tab {
+    position: relative; border: 0; background: none; color: var(--muted);
+    font: 600 var(--t-md) var(--font-ui); white-space: nowrap;
+    padding: 8px 10px 9px; border-radius: var(--r-control) var(--r-control) 0 0;
+    display: inline-flex; align-items: center; gap: 7px;
+
+    &:hover { color: var(--fg); background: color-mix(in oklab, var(--fg) 4%, transparent); }
+    &[aria-selected="true"] {
+      color: var(--fg);
+      &::after {
+        content: ""; position: absolute; inset-inline: 8px; bottom: -1px; height: 2px;
+        border-radius: 2px 2px 0 0; background: var(--accent);
+      }
+      & .n { color: var(--fg); }
+    }
+    & .n {
+      font: 600 11px var(--font-mono); font-variant-numeric: tabular-nums;
+      padding: 1px 6px; border-radius: var(--r-pill);
+      background: var(--surface-2); color: var(--faint);
+    }
+  }
+
+  .pane { min-height: 0; display: flex; flex-direction: column; }
+
+  .empty-detail {
+    display: grid; place-items: center; gap: 5px; align-content: center;
+    color: var(--faint); padding: 40px var(--s4); height: 100%; text-align: center;
+
+    & b { font: 650 var(--t-lg) var(--font-ui); letter-spacing: -0.01em; color: var(--muted); }
+    & span { max-width: 42ch; font-size: var(--t-sm); text-wrap: pretty; }
+  }
+
+  /* ---------- Terminal ---------- */
+
+  .term-host {
+    flex: 1; min-height: 0; overflow: hidden;
+    background: var(--term-bg);
+    padding: var(--s2) var(--s1) var(--s1) var(--term-pad);
+
+    & .xterm { height: 100%; }
+    /* tmux scrolls (mouse mode); xterm's own scrollbar would only change the width and trigger another fit. */
+    & .xterm-viewport { overflow-y: hidden; }
+  }
+
+  /* ---------- Diff ---------- */
+
+  .diff {
+    flex: 1; min-height: 0; overflow: auto;
+    padding: 14px 16px; display: grid; gap: var(--s3); align-content: start;
+    content-visibility: auto;
+  }
+  .diff-head {
+    display: flex; flex-wrap: wrap; align-items: center; gap: var(--s2) 14px;
+    font: 500 var(--t-sm) var(--font-mono); color: var(--muted);
+  }
+
+  .files {
+    border: 1px solid var(--line); border-radius: var(--r-panel); overflow: clip;
+    & > * + * { border-top: 1px solid var(--line); }
+  }
+
+  .file {
+    display: flex; align-items: center; gap: 10px; padding: var(--s2) var(--s3);
+    font: 500 12.5px/1.45 var(--font-mono); font-variant-numeric: tabular-nums;
+
+    & .path { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+    & .tag { font-family: var(--font-ui); font-size: var(--t-xs); color: var(--faint); }
+  }
+  summary.file {
+    cursor: pointer; list-style: none;
+    &::-webkit-details-marker { display: none; }
+    &::before { content: "›"; color: var(--faint); font-size: 14px; line-height: 1; transition: rotate 160ms ease; }
+    &:hover { background: var(--surface-2); }
+  }
+  .file-diff[open] > summary.file::before { rotate: 90deg; }
+
+  /* The disclosure is a height transition, with no measuring code. */
+  .file-diff::details-content {
+    block-size: 0; overflow: clip;
+    transition: block-size 200ms ease, content-visibility 200ms allow-discrete;
+    interpolate-size: allow-keywords;
+  }
+  .file-diff[open]::details-content { block-size: auto; }
+
+  .add { color: var(--done); }
+  .del { color: var(--fail); }
+
+  /* The add/delete balance of one file, before it is opened. */
+  .bar {
+    flex: none; display: inline-flex; gap: 2px;
+
+    & i { width: 6px; height: 6px; border-radius: 1.5px; background: var(--line-2); }
+    & i.a { background: var(--done); }
+    & i.d { background: var(--fail); }
+  }
+
+  .patch {
+    border: 1px solid var(--line); border-radius: var(--r-panel);
+    background: var(--term-bg); color: var(--term-fg); overflow-x: auto;
+
+    & pre { margin: 0; padding: var(--s2) 0; min-width: max-content; font: 500 12px/1.65 var(--font-mono); }
+    & .h { display: block; padding: 0 var(--s3); white-space: pre; }
+    & .h.a { background: color-mix(in oklab, var(--done) 18%, transparent); }
+    & .h.d { background: color-mix(in oklab, var(--fail) 18%, transparent); }
+    & .h.m { color: oklch(62% 0.02 290); }
+  }
+  .file-diff .patch { border: 0; border-top: 1px solid var(--line); border-radius: 0; }
+
+  .empty-pane { color: var(--faint); padding: var(--s5) 0; margin: 0; }
+
+  /* History preview */
+  .preview { gap: var(--s4); }
+  .pv h4 { margin: 0 0 var(--s2); font: 600 var(--t-sm) var(--font-ui); color: var(--muted); }
+  .pv-text { margin: 0 0 var(--s2); white-space: pre-wrap; overflow-wrap: anywhere; }
+}

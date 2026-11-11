@@ -5,8 +5,17 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Session Inbox</title>
 <link rel="stylesheet" href="vendor/xterm.css">
-<link rel="stylesheet" href="tokens.css">
-<link rel="stylesheet" href="app.css">
+<link rel="stylesheet" href="css/tokens.css">
+<!-- base.css declares the layer order, so it comes first. -->
+<link rel="stylesheet" href="css/base.css">
+<link rel="stylesheet" href="css/layout.css">
+<link rel="stylesheet" href="css/chrome.css">
+<link rel="stylesheet" href="css/rail.css">
+<link rel="stylesheet" href="css/detail.css">
+<link rel="stylesheet" href="css/answer.css">
+<link rel="stylesheet" href="css/actions.css">
+<link rel="stylesheet" href="css/overlay.css">
+<link rel="stylesheet" href="css/responsive.css">
 </head>
 <body>
 <div class="app">
@@ -98,6 +107,23 @@
 
 <script src="vendor/xterm.js"></script>
 <script src="vendor/addon-fit.js"></script>
-<script src="app.js"></script>
+<!-- Plain scripts sharing one global scope, no build step. Each file only declares, except for wiring its own
+     listeners; a file may use what an earlier one declared at load time, and main.js, last, starts the app. -->
+<script src="js/util.js"></script>
+<script src="js/state.js"></script>
+<script src="js/model.js"></script>
+<script src="js/render.js"></script>
+<script src="js/reply.js"></script>
+<script src="js/actions.js"></script>
+<script src="js/terminal.js"></script>
+<script src="js/diff.js"></script>
+<script src="js/selection.js"></script>
+<script src="js/alerts.js"></script>
+<script src="js/new-session.js"></script>
+<script src="js/history.js"></script>
+<script src="js/keyboard.js"></script>
+<script src="js/live.js"></script>
+<script src="js/theme.js"></script>
+<script src="js/main.js"></script>
 </body>
 </html>

@@ -1,0 +1,158 @@
+@layer chrome {
+
+  .sr-only {
+    position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0;
+    overflow: hidden; clip-path: inset(50%); white-space: nowrap; border: 0;
+  }
+
+  /* The filter over the live list. It sits outside the rail, so redrawing rows never takes the caret. */
+  .findbar {
+    display: flex; align-items: center; gap: var(--s2);
+    & input {
+      flex: 1; height: 34px; padding: 0 11px;
+      border: 1px solid var(--line-2); border-radius: var(--r-control);
+      background: var(--surface-2); color: var(--fg); box-shadow: var(--lift-1);
+      &:focus { outline: 0; border-color: var(--accent); box-shadow: var(--lift-1), 0 0 0 3px color-mix(in oklab, var(--accent) 22%, transparent); }
+    }
+  }
+  .find-count { color: var(--faint); font-size: 12px; font-variant-numeric: tabular-nums; }
+
+  /* ---------- Top bar ---------- */
+
+  .top { display: flex; align-items: center; flex-wrap: wrap; gap: 10px 18px; }
+
+  .brand {
+    display: flex; align-items: center; gap: 9px;
+    font: 700 var(--t-lg) var(--font-mono); letter-spacing: -0.03em;
+  }
+  .brand svg { flex: none; }
+  .brand .m-ink { fill: var(--accent); }
+  .brand .m-faint { fill: var(--deco); }
+  .brand .m-wait { fill: var(--wait); }
+
+  /* Filters. Selection is a surface step; the colour goes to counts that are not zero, so the bar itself
+     reports the state of the board. */
+  .filters { display: flex; flex-wrap: wrap; gap: 3px; }
+
+  .filter {
+    --tone: var(--faint);
+    display: inline-flex; align-items: center; gap: 7px;
+    height: 30px; padding: 0 11px;
+    border: 1px solid transparent; border-radius: var(--r-control);
+    background: transparent; color: var(--muted);
+    font: 600 var(--t-md) var(--font-ui);
+    transition: background-color 120ms ease, color 120ms ease;
+
+    &:hover { background: var(--surface-2); color: var(--fg); }
+
+    & b {
+      font: 600 var(--t-xs) var(--font-mono); font-variant-numeric: tabular-nums;
+      color: var(--faint);
+    }
+
+    &[aria-pressed="true"] {
+      background: var(--surface-3); color: var(--fg); border-color: var(--line-2);
+      & b { color: var(--fg); }
+    }
+
+    /* .has is set by renderCounts when the count is above zero. */
+    &.has {
+      & b { color: var(--tone); }
+      &::before {
+        content: ""; width: 6px; height: 6px; border-radius: 50%; background: var(--tone); margin-right: -1px;
+      }
+    }
+  }
+  .filter.f-needs { --tone: var(--wait); }
+  .filter.f-working { --tone: var(--work); }
+  .filter.f-done { --tone: var(--done); }
+  .filter.f-needs.has { color: var(--fg); }
+  .filter.f-needs.has::before { box-shadow: 0 0 8px var(--wait); }
+
+  .top-actions { margin-left: auto; display: flex; flex-wrap: wrap; align-items: center; gap: var(--s2); }
+
+  /* ---------- Buttons ---------- */
+
+  .btn {
+    display: inline-flex; align-items: center; justify-content: center; gap: 7px;
+    height: 32px; padding: 0 12px;
+    border: 1px solid var(--line-2); border-radius: var(--r-control);
+    background: var(--surface-2); color: var(--fg);
+    font: 600 var(--t-md) var(--font-ui); white-space: nowrap;
+    box-shadow: var(--lift-1);
+    transition: background-color 120ms ease, border-color 120ms ease;
+
+    &:hover:not(:disabled) { background: var(--surface-3); }
+    &.primary {
+      background: var(--accent); color: var(--accent-ink); border-color: transparent;
+      box-shadow: 0 6px 18px -8px var(--accent);
+      &:hover:not(:disabled) { filter: brightness(1.07); }
+    }
+    &.danger {
+      color: var(--fail); background: transparent;
+      border-color: color-mix(in oklab, var(--fail) 35%, transparent);
+      &:hover:not(:disabled) { background: color-mix(in oklab, var(--fail) 12%, transparent); }
+    }
+    &.armed { background: color-mix(in oklab, var(--fail) 16%, transparent); border-color: var(--fail); color: var(--fail); }
+    &.small { height: 26px; padding: 0 9px; font-size: var(--t-sm); }
+    &[aria-pressed="false"] { color: var(--muted); background: transparent; border-color: transparent; }
+    &[aria-pressed="false"]:hover { background: var(--surface-2); color: var(--fg); }
+  }
+  a.btn { color: inherit; text-decoration: none; }
+
+  .keys-btn { width: 32px; padding: 0; }
+  .theme-btn { min-width: 58px; }
+
+  .keys {
+    margin: 0; inset: 56px 16px auto auto;
+    padding: var(--s3); border: 1px solid var(--line-2); border-radius: var(--r-panel);
+    background: var(--surface-1); color: var(--muted); font-size: var(--t-sm);
+    box-shadow: var(--pop-shadow);
+
+    &:popover-open { display: flex; flex-direction: column; gap: var(--s2); }
+    & span { display: inline-flex; align-items: center; gap: var(--s1); }
+  }
+
+  #connection {
+    align-self: center; font: 500 var(--t-xs) var(--font-mono); color: var(--faint);
+    &:empty { display: none; }
+    &.down { color: var(--fail); font-weight: 600; }
+  }
+
+  .banner {
+    border-radius: var(--r-panel); padding: 10px 14px;
+    background: color-mix(in oklab, var(--fail) 12%, var(--surface-1));
+    box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--fail) 40%, transparent);
+    color: var(--fail); font-weight: 500;
+  }
+
+  /* ---------- State pills ---------- */
+
+  .state {
+    --tone: var(--faint);
+    display: inline-flex; align-items: center; gap: 6px;
+    height: 20px; padding: 0 8px 0 7px;
+    border-radius: var(--r-pill);
+    background: color-mix(in oklab, var(--tone) 14%, transparent);
+    color: var(--tone);
+    font: 600 var(--t-xs) var(--font-ui); white-space: nowrap;
+    box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--tone) 28%, transparent);
+
+    &::before { content: ""; width: 8px; height: 8px; flex: none; border-radius: 50%; background: currentColor; }
+  }
+  .s-wait { --tone: var(--wait); &::before { animation: beat 2s ease-in-out infinite; } }
+  .s-fail { --tone: var(--fail); &::before { animation: beat 2s ease-in-out infinite; } }
+  .s-work {
+    --tone: var(--work);
+    &::before {
+      background: none; border: 1.5px solid currentColor; border-right-color: transparent;
+      animation: spin 0.9s linear infinite;
+    }
+  }
+  .s-done { --tone: var(--done); &::before { content: "✓"; width: auto; height: auto; background: none; font-size: 10px; line-height: 1; } }
+  .s-idle, .s-ended { background: var(--surface-2); color: var(--muted); box-shadow: inset 0 0 0 1px var(--line); }
+  .s-ended { opacity: 0.75; }
+
+  @keyframes spin { to { rotate: 360deg; } }
+  @keyframes beat { 50% { opacity: 0.3; scale: 0.72; } }
+}
