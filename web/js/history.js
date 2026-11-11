@@ -52,13 +52,9 @@ function pastRowHtml(c) {
   </button>`;
 }
 
-// The search box is drawn once, so typing in it keeps the focus while the rows below it are redrawn.
 function renderHistoryList() {
   const list = $('#list');
-  if (!$('#h-search')) {
-    list.innerHTML = `<div class="h-search"><input id="h-search" type="search" placeholder="Search title, repository, ticket or branch" aria-label="Search history" autocomplete="off"></div><div id="h-rows"></div>`;
-    $('#h-search').value = pastQuery;
-  }
+  if (!$('#h-rows')) list.innerHTML = '<div id="h-rows"></div>';
   const rows = pastList();
   const empty = !pastLoaded ? 'Loading…' : past.size ? 'Nothing matches.' : EMPTY.history;
   $('#h-rows').innerHTML = rows.length
@@ -127,8 +123,7 @@ async function resumeConversation(c, button) {
   }
 }
 
-$('#list').addEventListener('input', e => {
-  if (e.target.id !== 'h-search') return;
+$('#h-search').addEventListener('input', e => {
   pastQuery = e.target.value;
   renderList();
 });

@@ -37,8 +37,9 @@ document.addEventListener('keydown', e => {
     setTicketFilter(ticketFilter ? null : sessions.get(selectedId).ticket);
   } else if (e.key === '/') {
     e.preventDefault();
-    $('#q').focus();
-    $('#q').select();
+    const box = filter === 'history' ? $('#h-search') : $('#q');
+    box.focus();
+    box.select();
   } else if (/^[1-9]$/.test(e.key)) {
     // A digit only moves to the option; Enter on it picks it, so a stray key never answers.
     const opt = document.querySelector(`#reply .opt[data-opt="${Number(e.key) - 1}"]`);

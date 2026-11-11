@@ -1,10 +1,17 @@
 @layer rail {
-  /* One scrolling surface with sticky group headers — not cards inside cards. */
-  .list {
-    min-height: 0; overflow: auto;
+  /* One panel: the search box on top, outside the scroller, so the scrollbar starts under it and redrawing rows
+     never takes the caret. */
+  .rail {
+    min-height: 0; overflow: hidden;
+    display: grid; grid-template-rows: auto minmax(0, 1fr);
     background: var(--surface-1);
     border: 1px solid var(--line); border-radius: var(--r-panel);
     box-shadow: var(--lift-1);
+  }
+
+  /* One scrolling surface with sticky group headers — not cards inside cards. */
+  .list {
+    min-height: 0; overflow: auto;
     scrollbar-gutter: stable; overscroll-behavior: contain;
     display: grid; align-content: start;
     /* The rail answers to its own width, not the window's: it is a resizable split and it is embeddable. */
@@ -123,6 +130,15 @@
   .row-top { display: flex; align-items: center; gap: var(--s2); min-width: 0; }
   .repo { flex: none; font-weight: 650; letter-spacing: -0.01em; }
 
+  /* A live row leads with its title: one line, cut with an ellipsis, sized to the rail's width. */
+  .row-head { display: flex; align-items: baseline; gap: var(--s2); min-width: 0; }
+  .row-title {
+    flex: 0 1 auto; min-width: 0;
+    font-size: clamp(var(--t-md), 4cqi, var(--t-lg)); font-weight: 650; letter-spacing: -0.01em;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .row-repo { flex: none; font: 600 var(--t-xs) var(--font-ui); color: var(--muted); white-space: nowrap; }
+
   /* The branch holds the width the state pill used to take. It is the one fact you act on outside the app,
      so it ellipsises rather than wrapping the strip. */
   .row-branch {
@@ -160,9 +176,9 @@
     & span { max-width: 42ch; font-size: var(--t-sm); text-wrap: pretty; }
   }
 
-  /* History search sits above the rail. */
-  .h-search {
-    padding: 0 0 var(--s2);
+  /* The live filter and the History search share this spot; one of them shows. */
+  .rail-search {
+    padding: var(--s2); border-bottom: 1px solid var(--line);
     & input {
       width: 100%; height: 34px; padding: 0 11px;
       border: 1px solid var(--line-2); border-radius: var(--r-control);

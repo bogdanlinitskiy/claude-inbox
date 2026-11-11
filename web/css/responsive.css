@@ -6,7 +6,7 @@
 
 @media (max-width: 880px) {
   .main { grid-template-columns: minmax(0, 1fr); }
-  .main.show-detail .list { display: none; }
+  .main.show-detail .rail { display: none; }
   .main:not(.show-detail) .detail { display: none; }
   .back { display: inline-flex; }
   .d-tools { margin-left: 0; }

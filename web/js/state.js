@@ -61,7 +61,7 @@ let alertsOn = readSetting('alerts', true);
 // on is the click that lets the browser open an AudioContext at all.
 let soundOn = readSetting('sound', false);
 let audio = null;
-// The text typed in the findbar; it narrows the live list the way the ticket chip narrows it.
+// The text typed in the live filter; it narrows the live list the way the ticket chip narrows it.
 let query = '';
 let term = null;
 let paneKey = '';
