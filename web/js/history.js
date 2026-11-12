@@ -93,7 +93,7 @@ function renderPastDetail(c) {
     <div class="d-tools"><button type="button" class="btn small" data-act="resume-conversation">Resume</button></div>
     <div class="d-meta">
       <span class="state ${KIND.ended.cls}">${KIND.ended.label} · last active ${since(c.updatedAt)} ago</span>
-      <span>${esc(c.repo)}</span>${branch}<span class="mono">${esc(c.dir)}</span>
+      <span>${esc(c.repo)}</span>${branch}<span class="mono">${esc(c.dir)}</span><span class="mono">${esc(c.id)}</span>
     </div>`;
   $('#tabs').innerHTML = tabsHtml(['preview'], 'preview');
   labelPane('preview');
