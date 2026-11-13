@@ -90,12 +90,8 @@
       <button type="button" role="tab" id="ns-multi" aria-selected="false">Multi</button>
     </div>
     <p class="hint" id="ns-hint">Starts Claude Code in its own tmux session, in auto mode. It shows up here and alerts you when it needs you.</p>
-    <div class="field" id="ns-repo-field">
-      <label for="ns-repo">Repository</label>
-      <select id="ns-repo" required></select>
-    </div>
-    <div class="field" id="ns-repos-field" hidden>
-      <span class="lbl" id="ns-repos-label">Repositories, one session each <span id="ns-picked"></span></span>
+    <div class="field">
+      <span class="lbl" id="ns-repos-label">Repository <span id="ns-picked"></span></span>
       <div class="picker">
         <input type="search" id="ns-repo-q" placeholder="Filter repositories" aria-label="Filter repositories" autocomplete="off">
         <div class="chips" id="ns-chips" aria-label="Picked repositories"></div>
