@@ -265,3 +265,28 @@ func appendRaw(t *testing.T, path, text string) {
 	require.NoError(t, err)
 	require.NoError(t, f.Close())
 }
+
+func TestGroupMessages(t *testing.T) {
+	dir := New(t.TempDir())
+	require.NoError(t, dir.Init())
+
+	none, err := dir.GroupMessages(testID)
+	require.NoError(t, err)
+	assert.Empty(t, none, "a group that sent nothing yet")
+
+	first := GroupMessage{SentAt: time.Date(2026, 11, 13, 10, 0, 0, 0, time.UTC), From: "PROJ-1-coord", To: "PROJ-1-wallet", Text: "Add the claim."}
+	second := GroupMessage{SentAt: first.SentAt.Add(time.Minute), From: "PROJ-1-wallet", To: "PROJ-1-coord", Text: "Done."}
+	require.NoError(t, dir.AppendGroupMessage(testID, first))
+	require.NoError(t, dir.AppendGroupMessage(testID, second))
+
+	msgs, err := dir.GroupMessages(testID)
+	require.NoError(t, err)
+	assert.Equal(t, []GroupMessage{first, second}, msgs)
+}
+
+func TestGroupMessagesRejectInvalidID(t *testing.T) {
+	dir := New(t.TempDir())
+	_, err := dir.GroupMessages("../evil1")
+	require.ErrorIs(t, err, ErrInvalidID)
+	require.ErrorIs(t, dir.AppendGroupMessage("../evil1", GroupMessage{}), ErrInvalidID)
+}

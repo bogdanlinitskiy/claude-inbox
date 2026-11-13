@@ -38,6 +38,7 @@ commands:
   setup      add the global hook to ~/.claude/settings.json, so sessions started elsewhere are listed too
              (setup --remove takes it out; claude-inbox setup -h for flags)
   tmux-name  print the tmux session name for a session in the current folder (used by claude-tmux)
+  send       message another session of the same group: claude-inbox send <name> <text> (run by a session)
   version    print the version (also --version)
 `
 
@@ -52,6 +53,8 @@ const (
 	discoverInterval = time.Second
 	paneCheckInterval   = 5 * time.Second
 	screenCheckInterval = 2 * time.Second
+	// stallAfter: a working session of a group silent this long may have lost its connection, which no hook reports.
+	stallAfter = 5 * time.Minute
 	readHeaderTimeout   = 10 * time.Second
 	shutdownTimeout     = 5 * time.Second
 	// procRoot is where Linux keeps its process table; macOS has none and reads ps instead.
@@ -89,6 +92,11 @@ func main() {
 	case "version", "--version":
 		info, ok := debug.ReadBuildInfo()
 		fmt.Println("claude-inbox", versionString(version, info, ok))
+	case "send":
+		if err := runSend(os.Args[2:], os.Getenv, http.DefaultClient, os.Stdout); err != nil {
+			fmt.Fprintln(os.Stderr, "claude-inbox send:", err)
+			os.Exit(1)
+		}
 	case "tmux-name":
 		if err := runTmuxName(); err != nil {
 			fmt.Fprintln(os.Stderr, "claude-inbox tmux-name:", err)
@@ -218,6 +226,7 @@ func runServe(args []string) error {
 		TicketPattern:       tickets,
 		StripPrefix:         f.stripPrefix,
 		HookCommand:         []string{self, "hook", "--state-dir", root},
+		SendCommand:         []string{self, "send", "--state-dir", root},
 		Claude:              f.claude,
 		Transcripts:         filepath.Join(home, ".claude", "projects"),
 		AddWorktree:         gitdiff.AddWorktree,
@@ -231,6 +240,7 @@ func runServe(args []string) error {
 		DiscoverInterval:    discoverInterval,
 		PaneCheckInterval:   paneCheckInterval,
 		ScreenCheckInterval: screenCheckInterval,
+		StallAfter:          stallAfter,
 	})
 	if err != nil {
 		return err

@@ -31,6 +31,7 @@ const (
 	sessionsDir  = "sessions"
 	eventsDir    = "events"
 	archiveDir   = "archive"
+	groupsDir    = "groups"
 	hookSettings = "hook-settings.json"
 	metaExt      = ".json"
 )
@@ -74,6 +75,17 @@ type Meta struct {
 	PIDStart   uint64 `json:"pidStart,omitempty"`
 	TmuxSocket string `json:"tmuxSocket,omitempty"`
 	TmuxPane   string `json:"tmuxPane,omitempty"`
+	// Group is the id of the group the session was started in with others, Role its part there.
+	Group string `json:"group,omitempty"`
+	Role  string `json:"role,omitempty"`
+}
+
+// GroupMessage is one message a session of a group sent another (claude-inbox send).
+type GroupMessage struct {
+	SentAt time.Time `json:"sentAt"`
+	From   string    `json:"from"`
+	To     string    `json:"to"`
+	Text   string    `json:"text"`
 }
 
 type Dir struct {
@@ -126,7 +138,7 @@ func (d Dir) HookSettingsPath() string {
 
 // Init creates the directory layout; it is safe to call on an existing state directory.
 func (d Dir) Init() error {
-	for _, sub := range []string{sessionsDir, eventsDir, archiveDir} {
+	for _, sub := range []string{sessionsDir, eventsDir, archiveDir, groupsDir} {
 		if err := os.MkdirAll(filepath.Join(d.root, sub), dirMode); err != nil {
 			return fmt.Errorf("create %s directory: %w", sub, err)
 		}
@@ -186,6 +198,62 @@ func writeLocked(f *os.File, line []byte) error {
 		return fmt.Errorf("write event: %w", err)
 	}
 	return nil
+}
+
+// AppendGroupMessage adds one message to the group's message log.
+func (d Dir) AppendGroupMessage(group string, msg GroupMessage) error {
+	path, err := d.groupPath(group)
+	if err != nil {
+		return err
+	}
+	line, err := json.Marshal(msg)
+	if err != nil {
+		return fmt.Errorf("encode group message: %w", err)
+	}
+	f, err := os.OpenFile(path, os.O_APPEND|os.O_CREATE|os.O_WRONLY, fileMode)
+	if err != nil {
+		return fmt.Errorf("open group messages: %w", err)
+	}
+	writeErr := writeLocked(f, append(line, '\n'))
+	closeErr := f.Close()
+	if writeErr != nil {
+		return writeErr
+	}
+	if closeErr != nil {
+		return fmt.Errorf("close group messages: %w", closeErr)
+	}
+	return nil
+}
+
+// GroupMessages returns the group's messages, oldest first; none when the group has sent none yet.
+func (d Dir) GroupMessages(group string) ([]GroupMessage, error) {
+	path, err := d.groupPath(group)
+	if err != nil {
+		return nil, err
+	}
+	data, err := os.ReadFile(path)
+	if errors.Is(err, os.ErrNotExist) {
+		return []GroupMessage{}, nil
+	}
+	if err != nil {
+		return nil, fmt.Errorf("read group messages: %w", err)
+	}
+	msgs := []GroupMessage{}
+	for line := range bytes.Lines(data) {
+		var msg GroupMessage
+		// A line cut short by a crash is skipped rather than hiding every message after it.
+		if json.Unmarshal(line, &msg) == nil {
+			msgs = append(msgs, msg)
+		}
+	}
+	return msgs, nil
+}
+
+func (d Dir) groupPath(group string) (string, error) {
+	if !idPattern.MatchString(group) {
+		return "", fmt.Errorf("%w: %q", ErrInvalidID, group)
+	}
+	return filepath.Join(d.root, groupsDir, group+".jsonl"), nil
 }
 
 func (d Dir) AppendAppEvent(id, event string, now time.Time) error {

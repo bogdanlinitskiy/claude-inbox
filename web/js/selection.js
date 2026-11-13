@@ -119,6 +119,13 @@ async function act(s, action, target) {
 }
 
 $('#list').addEventListener('click', e => {
+  const head = e.target.closest('[data-group]');
+  if (head) {
+    const id = head.dataset.group;
+    if (!foldedGroups.delete(id)) foldedGroups.add(id);
+    renderList();
+    return;
+  }
   // The chip and the Clear button sit inside the row, so they are read before the row itself.
   const tix = e.target.closest('[data-ticket]');
   if (tix) {
@@ -165,6 +172,11 @@ $('#detail').addEventListener('click', e => {
     return;
   }
   if (!s) return;
+  const pick = e.target.closest('[data-pick]');
+  if (pick) {
+    select(pick.dataset.pick);
+    return;
+  }
   const t = e.target.closest('[data-tab],[data-opt],[data-act],[data-allow],[data-trust],[data-action]');
   if (!t) return;
   if (t.dataset.tab) {

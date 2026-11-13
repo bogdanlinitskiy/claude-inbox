@@ -88,6 +88,8 @@ type Config struct {
 	RepoGroups []RepoGroup
 	// HookCommand is the hook as Claude Code should run it, e.g. claude-inbox hook --state-dir <dir>.
 	HookCommand []string
+	// SendCommand is how a session of a group runs claude-inbox send, e.g. claude-inbox send --state-dir <dir>.
+	SendCommand []string
 	Claude      string
 	// Transcripts is Claude Code's folder of conversation transcripts, ~/.claude/projects. The folders Claude ran
 	// in there are offered for new sessions too. Empty: none.
@@ -116,6 +118,8 @@ type Config struct {
 	// prompt, while a new one showing up a fraction of a second later costs nothing. Zero means PollInterval.
 	DiscoverInterval  time.Duration
 	PaneCheckInterval time.Duration
+	// StallAfter is how long a working session of a group may stay silent before it counts as stalled; zero never.
+	StallAfter time.Duration
 }
 
 type Delivery string
@@ -148,6 +152,9 @@ type Info struct {
 	Attach string `json:"attach,omitempty"`
 	// ClaudeSessionID is Claude Code's id of the conversation, once its first hook has reported it.
 	ClaudeSessionID string `json:"claudeSessionId,omitempty"`
+	// Group is the id of the group the session was started in, Role its part there; both empty outside one.
+	Group string `json:"group,omitempty"`
+	Role  string `json:"role,omitempty"`
 }
 
 // Conversation is a past conversation as History shows it.
@@ -199,6 +206,10 @@ type entry struct {
 	screenInterval time.Duration
 	// send keeps two answers to one session from interleaving their keys.
 	send sync.Mutex
+	// turn is the worker's current turn, from its prompt to its Stop; lastSentAt is when it last ran
+	// claude-inbox send. Together they tell whether it reported the turn.
+	turn       *turn
+	lastSentAt time.Time
 }
 
 type pending struct {
@@ -236,6 +247,8 @@ type Manager struct {
 	mu      sync.Mutex
 	entries map[string]*entry
 	subs    map[chan Change]struct{}
+	// notices wait for their coordinator (group.go).
+	notices []notice
 }
 
 // New prepares the state directory, writes the hook settings and rebuilds every open session from its events.
@@ -277,7 +290,7 @@ func (m *Manager) load(ctx context.Context, meta store.Meta) (*entry, error) {
 	e := m.newEntry(meta)
 	e.trustChecked = true
 	e.branch = m.branchOf(ctx, meta)
-	if _, err := m.readNew(e); err != nil {
+	if _, err := m.readNew(e, false); err != nil {
 		return nil, err
 	}
 	return e, nil
@@ -326,6 +339,8 @@ func (m *Manager) Run(ctx context.Context) {
 			return
 		case <-poll.C:
 			m.pollEvents()
+			m.checkStalls()
+			m.deliverNotices(ctx)
 			m.checkPending(ctx)
 			m.checkTrust(ctx)
 			m.checkScreens(ctx)
@@ -419,15 +434,37 @@ func (m *Manager) addWorktree(ctx context.Context, repo Repo, branch string) (st
 // launch saves a new app session with meta's ticket, title, repo and folder, and runs command for it in a new
 // tmux session.
 func (m *Manager) launch(ctx context.Context, meta store.Meta, branch string, command []string) (Info, error) {
+	meta, err := m.reserve(ctx, meta, nil)
+	if err != nil {
+		return Info{}, err
+	}
+	return m.run(ctx, meta, branch, command)
+}
+
+// reserve gives meta a new id and a free tmux name, one not in reserved either, which it then adds there.
+func (m *Manager) reserve(ctx context.Context, meta store.Meta, reserved map[string]bool) (store.Meta, error) {
 	id, err := store.NewID()
 	if err != nil {
-		return Info{}, err
+		return meta, err
 	}
-	name, err := m.uniqueName(ctx, meta.Ticket, meta.Repo)
+	nameRepo := meta.Repo
+	if meta.Role == RoleCoordinator {
+		nameRepo = RoleCoordinator
+	}
+	name, err := m.uniqueName(ctx, meta.Ticket, nameRepo, reserved)
 	if err != nil {
-		return Info{}, err
+		return meta, err
+	}
+	if reserved != nil {
+		reserved[name] = true
 	}
 	meta.ID, meta.TmuxName, meta.CreatedAt = id, name, m.cfg.Now()
+	return meta, nil
+}
+
+// run saves a reserved session and runs command for it in a new tmux session.
+func (m *Manager) run(ctx context.Context, meta store.Meta, branch string, command []string) (Info, error) {
+	id, name := meta.ID, meta.TmuxName
 	if err := m.cfg.Store.SaveMeta(meta); err != nil {
 		return Info{}, err
 	}
@@ -642,7 +679,10 @@ func (m *Manager) waitGone(ctx context.Context, name string) (bool, error) {
 }
 
 func (m *Manager) claudeCommand(prompt string) []string {
-	cmd := m.claudeBase()
+	return appendPrompt(m.claudeBase(), prompt)
+}
+
+func appendPrompt(cmd []string, prompt string) []string {
 	if prompt == "" {
 		return cmd
 	}
@@ -657,7 +697,7 @@ func (m *Manager) claudeBase() []string {
 	return []string{m.cfg.Claude, "--settings", m.cfg.Store.HookSettingsPath(), "--permission-mode", permissionModeAuto}
 }
 
-func (m *Manager) uniqueName(ctx context.Context, ticket, repo string) (string, error) {
+func (m *Manager) uniqueName(ctx context.Context, ticket, repo string, reserved map[string]bool) (string, error) {
 	if ticket == "" {
 		ticket = noTicket
 	}
@@ -673,7 +713,7 @@ func (m *Manager) uniqueName(ctx context.Context, ticket, repo string) (string, 
 		if n > 1 {
 			name = fmt.Sprintf("%s-%d", base, n)
 		}
-		if taken[name] {
+		if taken[name] || reserved[name] {
 			continue
 		}
 		exists, err := m.cfg.Tmux.Has(ctx, name)
@@ -714,9 +754,10 @@ func (m *Manager) lookup(id string) (*entry, state.Session, error) {
 	return e, e.state, nil
 }
 
-// readNew applies the events written since the last read and reports whether anything visible changed.
+// readNew applies the events written since the last read and reports whether anything visible changed. Live
+// events of a group's worker can make notices for its coordinator; replayed ones never do.
 // The caller holds m.mu, or owns e exclusively.
-func (m *Manager) readNew(e *entry) (bool, error) {
+func (m *Manager) readNew(e *entry, live bool) (bool, error) {
 	records, offset, err := m.cfg.Store.ReadEvents(e.meta.ID, e.offset)
 	if err != nil {
 		return false, err
@@ -724,8 +765,11 @@ func (m *Manager) readNew(e *entry) (bool, error) {
 	e.offset = offset
 	changed := false
 	for _, rec := range records {
-		seq := e.state.Seq
+		seq, before := e.state.Seq, e.state
 		e.state = state.Apply(e.state, rec)
+		if live && e.meta.Role == RoleWorker {
+			m.watchWorker(e, rec, before)
+		}
 		e.lastEventAt = rec.TS
 		// Something happened, so the screen is worth reading at the base interval again.
 		e.screenInterval = 0
@@ -746,7 +790,7 @@ func (m *Manager) pollEvents() {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	for id, e := range m.entries {
-		changed, err := m.readNew(e)
+		changed, err := m.readNew(e, true)
 		if err != nil {
 			m.cfg.Logger.Error("read session events", "session", id, "err", err)
 			continue
@@ -972,7 +1016,7 @@ func (e *entry) info(ticketPattern *regexp.Regexp) Info {
 		ID: e.meta.ID, Ticket: e.meta.Ticket, Title: e.meta.Title, Repo: e.meta.Repo, Dir: e.meta.Dir,
 		TmuxName: e.meta.TmuxName, Branch: e.branch, CreatedAt: state.FormatTime(e.meta.CreatedAt),
 		State: e.state.View(), Delivery: e.delivery, Discovered: e.meta.Discovered, Worktree: e.meta.Worktree, InTmux: e.inTmux,
-		ClaudeSessionID: e.state.ClaudeSessionID,
+		ClaudeSessionID: e.state.ClaudeSessionID, Group: e.meta.Group, Role: e.meta.Role,
 	}
 	if e.meta.Discovered {
 		info.Ticket = TicketIn(ticketPattern, e.branch)

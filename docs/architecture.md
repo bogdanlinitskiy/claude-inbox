@@ -5,11 +5,13 @@ sections of this file.
 
 ## Overview
 
-One Go binary, `claude-inbox`, with two commands:
+One Go binary, `claude-inbox`, with three commands at its core:
 
 - `claude-inbox serve` runs the local web app: it starts Claude sessions in tmux, follows their hook events,
   serves the page, and types answers into the sessions.
 - `claude-inbox hook` is the hook command. It appends the hook payload to the session's event file and exits.
+- `claude-inbox send` is run by a session of a group to message another one, through `serve`
+  ([Session groups](#session-groups)).
 
 The hook writes to files, so it works while the app is down. The app turns a session's events into its current
 state with one pure function, tested against a recorded run (`testdata/spike-hooks.jsonl`).
@@ -31,13 +33,15 @@ state with one pure function, tested against a recorded run (`testdata/spike-hoo
 | `events/<id>.jsonl` | hook and serve | One JSON object per line: `{ts, source: "hook", payload}` or `{ts, source: "app", event}`. |
 | `hook-settings.json` | serve, at start-up | The settings passed with `--settings`; points every hook at the absolute path of the binary. |
 | `archive/` | serve | Metadata and events of ended sessions, for debugging; `serve` deletes files older than 30 days when it starts. |
-| `serve.url` | serve | The login link of the running app. |
+| `groups/<group id>.jsonl` | serve | The messages the sessions of a group sent each other: `{sentAt, from, to, text}` per line. |
+| `serve.url` | serve | The login link of the running app; `claude-inbox send` reads it to reach the app. |
 
 App events (`source: "app"`): `interrupt` (Esc sent), `denied` (No picked on a permission menu), `trust_prompt`
 (the trust screen is showing), `pane_gone` (tmux session vanished), `process_gone` (the `claude` process of a
 discovered session is gone), `closed`, `screen_prompt` (a menu no hook reported is on the screen; the payload is
 that menu as a question), `screen_prompt_gone` (that menu left the screen unanswered) and `answered` (an answer
-from the app took a menu off the screen before any hook said so). The last three carry a `seq`, so an event that
+from the app took a menu off the screen before any hook said so) and `stalled` (a working session of a group has
+fired nothing for 5 minutes). The last four carry a `seq`, so an event that
 arrives after the session has moved on changes nothing. Interrupt and Deny fire no hook, the trust screen comes
 before any hook, and Claude Code asks some things without a hook at all, so the app records them itself. Keeping
 them in the same file keeps one ordered history per session, so a restart replays exactly what happened.
@@ -77,7 +81,7 @@ hook path they were started with.
 
 | Package | Responsibility |
 |---|---|
-| `cmd/claude-inbox` | The config file, flag parsing, and the `serve`, `hook`, `setup` and `tmux-name` commands. |
+| `cmd/claude-inbox` | The config file, flag parsing, and the `serve`, `hook`, `setup`, `send` and `tmux-name` commands. |
 | `internal/settings` | Adds the global hook to Claude Code's `settings.json` and takes it out, editing the JSON in place. |
 | `internal/hook` | Read stdin, wrap it in `{ts, source, payload}`, append it to the event file under `flock`. |
 | `internal/store` | State directory layout, session metadata, appending app events, reading event files from a saved offset, archiving. |
@@ -117,6 +121,7 @@ Session state: `kind` (Trust, Idle, Working, Question, Permission, Done, Ended, 
 | app `interrupt`, app `denied` | Idle |
 | app `screen_prompt` | Question read from the screen, marked `fromScreen`; ignored when a hook already said what the session waits on |
 | app `screen_prompt_gone` for the current `seq` | back to the state the session was in before the menu appeared |
+| app `stalled` for the current `seq`, while Working | Working, marked `stalled`, which counts as "needs you"; the next event of any kind clears it |
 | app `answered` for the current `seq` | Working after a question or a permission, Idle after the trust screen, else back as for `screen_prompt_gone` |
 | any other event | unchanged |
 
@@ -155,11 +160,14 @@ Errors are `{message, code}`.
 | `GET /` | The page. |
 | `GET /api/sessions` | All sessions with their state. |
 | `POST /api/sessions` | Start a session: `{dir, ticket, title, prompt, worktree, branch}`. |
+| `POST /api/groups` | Start a group: `{dirs, ticket, title, prompt, worktree, branch, coordinator, shareDirs}`; answers the started sessions. |
+| `GET /api/group/{id}/messages` | The messages the group's sessions sent each other, oldest first. |
 | `GET /api/session/{id}` | One session. |
 | `PATCH /api/session/{id}` | Rename: `{title}`; an empty title shows the folder name again. |
 | `DELETE /api/session/{id}` | App session: close (`C-c`, `/exit`, `Enter`, wait up to 5 s for `SessionEnd`, kill the tmux session, archive). Discovered session: hide (archive, no keys sent). |
 | `POST /api/session/{id}/answer` | `{seq, option}` or `{seq, text}` or `{seq, allow}`. |
 | `POST /api/session/{id}/message` | `{text}`. |
+| `POST /api/session/{id}/send` | `{to, text}`: session `{id}` messages the session of its group named `to` (tmux name or id); see [Session groups](#session-groups). |
 | `POST /api/session/{id}/interrupt` | Sends Esc. |
 | `POST /api/session/{id}/action` | `{list, index, input}`: the action at `index` of `primary` or `secondary`. A `send` action goes through the message path (`{input}` replaced) and answers `{session}`. A `run` action runs `sh -c <command>` in the session's folder with `$INBOX_INPUT`, in its own process group, killed after 5 minutes, and answers `{run: {exitCode, output, truncated, timedOut}}` with the last 16 KiB of output; 409 while the session is working or its folder is unknown. An unknown action or a missing input is a 400. |
 | `GET /api/session/{id}/diff` | Files with +/−, patch, untracked files. |
@@ -191,6 +199,42 @@ can frame the app (clickjacking).
 5. Set `status off` and `mouse on` on that tmux session: no tmux bar in the page, and the mouse wheel scrolls.
 6. If no `SessionStart` arrives within 3 s, capture the pane; if it shows the trust question, append
    `trust_prompt`. The page then asks "Trust this folder?".
+
+## Session groups
+
+`POST /api/groups` starts one session per repository in `dirs`, on one ticket, as a group with a new 8-character
+group id, which every member keeps in its metadata (`group`) next to its part (`role`: `coordinator` or
+`worker`).
+
+1. Each folder must be listed, as for a single session. With `worktree`, every worktree is made first, so a bad
+   branch starts nothing.
+2. With `coordinator`, one more session runs in the deepest folder that holds all the repositories, named
+   `<ticket>-coordinator`.
+3. Every tmux name is reserved before any session starts, so each session's system prompt can name all of them.
+4. Each session runs `claude … [--add-dir <the other members' folders>] --append-system-prompt <the group> [<prompt>]`.
+   The system prompt lists the members (name, role, repository, folder), says how to message one, and gives the
+   session its part. `--add-dir` takes several values, so the system prompt sits between it and the prompt. With
+   a coordinator only the coordinator gets the prompt; without one every session does.
+5. A session that fails to start leaves the others running; the request answers with the error.
+
+`claude-inbox send <name> <text>` reads the sender's id from `INBOX_SESSION` and the app's link and token from
+`serve.url`, and posts to `POST /api/session/{id}/send` with the token cookie and the app's `Origin`. The manager
+finds the target by tmux name or id among the sender's group, sends `[from <sender>] <text>` as a normal message
+(queued while the target works), and appends the message to `groups/<group id>.jsonl` for the Group tab.
+
+The app also tells a coordinator what its workers cannot or did not, as messages from `claude-inbox`. Watching the
+live events of each worker (never replayed ones), it makes a notice when a worker:
+
+- ends a turn without having run `send` since the turn's `UserPromptSubmit`: one started by the user typing to it
+  directly (the notice quotes the prompt and the last reply), or one started by a group message it did not answer;
+- stops on `StopFailure`;
+- ends (`SessionEnd`, `pane_gone`, `closed`);
+- stalls: no event of any kind for 5 minutes while Working. A lost connection fires no hook, so silence is the only
+  sign of it. The app records `stalled`, which also puts the session in front of the user.
+
+Each poll sends a coordinator its waiting notices as one message, unless it has a send on its way or waits on the
+user; then they wait for a later poll. Two messages in a row to an idle session would start with two `C-c`s, which
+Claude Code reads as exit. Notices for a group without a running coordinator are dropped.
 
 ## Following events
 

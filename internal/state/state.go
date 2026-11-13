@@ -38,6 +38,9 @@ const (
 	// EventAnswered: an answer from the app took the menu off the screen before any hook said so, as Allow does for
 	// a long command; the payload is SeqPayload.
 	EventAnswered = "answered"
+	// EventStalled: a working session of a group has fired no hook for a while; it may have lost its connection,
+	// which no hook reports. The payload is SeqPayload.
+	EventStalled = "stalled"
 )
 
 // SeqPayload names the state an app event is about. The event changes nothing once the session has moved on, so
@@ -100,6 +103,8 @@ type Session struct {
 	Failed          bool
 	// FromScreen: the question was read from the screen; no hook reported it.
 	FromScreen bool
+	// Stalled: the session is working but has been silent too long. The next event of any kind clears it.
+	Stalled bool
 	// beforeScreen is the state to go back to once the question read from the screen is gone.
 	beforeScreen *Session
 }
@@ -109,9 +114,9 @@ func New(startedAt time.Time) Session {
 	return Session{Kind: KindIdle, Since: startedAt}
 }
 
-// NeedsYou reports whether the session is waiting for an answer from the user.
+// NeedsYou reports whether the session is waiting for an answer from the user, or for a look at its terminal.
 func (s Session) NeedsYou() bool {
-	return s.Kind == KindTrust || s.Kind == KindQuestion || s.Kind == KindPermission
+	return s.Kind == KindTrust || s.Kind == KindQuestion || s.Kind == KindPermission || s.Stalled
 }
 
 type payload struct {
@@ -177,6 +182,12 @@ func applyAppEvent(s Session, rec store.Record) Session {
 			return s
 		}
 		return answered(s)
+	case EventStalled:
+		if !forSeq(s, rec) || s.Kind != KindWorking {
+			return s
+		}
+		s.Stalled = true
+		return s
 	default:
 		return s
 	}
@@ -354,7 +365,8 @@ func truncate(text string) string {
 
 func sameVisibleState(a, b Session) bool {
 	if a.Kind != b.Kind || a.Activity != b.Activity || a.LastMessage != b.LastMessage || a.Failed != b.Failed ||
-		a.PermissionMode != b.PermissionMode || a.ClaudeSessionID != b.ClaudeSessionID || a.FromScreen != b.FromScreen {
+		a.PermissionMode != b.PermissionMode || a.ClaudeSessionID != b.ClaudeSessionID || a.FromScreen != b.FromScreen ||
+		a.Stalled != b.Stalled {
 		return false
 	}
 	if (a.Permission == nil) != (b.Permission == nil) || (a.Permission != nil && *a.Permission != *b.Permission) {

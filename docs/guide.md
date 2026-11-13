@@ -11,12 +11,19 @@ another local tool can open the app without the printed link.
 
 ## The list
 
-Three blocks, always in this order:
+The blocks, always in this order:
 
 - **Needs you** — a session waiting on a question, a permission, a folder it does not trust, or something the app
   does not recognize. The row shows the question, or the command Claude wants to run.
+- **Groups** — one block per group of sessions started together (see
+  [Several repositories at once](#several-repositories-at-once)).
 - **Working** — Claude is busy. The row shows what it is doing.
 - **Done** — finished or idle, with the last message.
+
+A group's sessions stay in its block whatever their state; each row says its own state. The group's header shows
+the ticket, the title, the branch and how its sessions are split across the states. While one of them needs you,
+the header turns amber and the group moves above the other groups. Click the header to fold the group; a folded
+header still turns amber.
 
 Every row carries its repository, branch, state and how long it has been in that state. A row can also be
 tagged **from screen**, for a question the app read off the terminal rather than one Claude Code reported; see
@@ -73,6 +80,8 @@ because you answered it in the terminal instead, the row goes back to what it sh
   controls don't cover.
 - **Diff** — `git diff` against the merge base with the repository's default branch, including uncommitted and
   untracked files.
+- **Group** — only for a session of a group: the group's sessions with their state (click one to open it), and
+  the messages they sent each other.
 
 ![The Terminal tab, then the session's change in the Diff tab](media/tabs.gif)
 
@@ -89,6 +98,32 @@ session closes.
 
 Claude starts in auto mode, in its own tmux session. The repositories Claude ran in before are offered with no
 setup at all; to list your own instead, see [repositories.md](repositories.md).
+
+## Several repositories at once
+
+For a task that changes several repositories, the **Multi** tab of New session starts one session per repository,
+as a group. Tick the repositories (the box above the list filters it; the ticked ones stay as chips above it), and
+give one ticket. Tick the worktree box to start each session in a new worktree of its repository, on one branch.
+
+Every session of the group is told, in its system prompt, which other sessions are in the group, where they run,
+and how to message them. With **Let the sessions read each other's folders** each one can also read the others'
+folders (`claude --add-dir`), so a session can check another repository's side of a contract without asking.
+
+With **Add a coordinator**, one more session starts in the folder that holds the repositories. Only it gets the
+first message: it splits the task, sends each session its part, answers their questions, collects their reports
+and writes you one summary. Without a coordinator, every session gets the first message, and they tell each other
+when a change affects another one.
+
+A session messages another one by running `claude-inbox send <name> "<text>"`; the text reaches the other session
+as a prompt starting with `[from <sender>]`, and a busy session gets it when its turn ends. Permission prompts of
+every session still come to you, never to the coordinator.
+
+Each session is told to report every turn in which it changed something, also one you started by typing to it
+directly. The app does not rely on that alone: it messages the coordinator itself, as `[from claude-inbox]`, when a
+session ends a turn without reporting it, stops on an error, ends, or goes silent. A session of a group that has
+been working for 5 minutes without any sign of activity may have lost its connection, which Claude Code does not
+report; it shows **No activity**, counts as needing you (its group header turns amber, and you get an alert), and
+the coordinator is told. Any activity clears it.
 
 ## Sessions you start yourself
 
