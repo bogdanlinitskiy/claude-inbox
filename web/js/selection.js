@@ -105,6 +105,9 @@ async function act(s, action, target) {
     case 'close':
       closeSession(s);
       break;
+    case 'close-group':
+      closeGroup(s);
+      break;
     case 'interrupt':
       try {
         apply({ session: await api('POST', `/api/session/${encodeURIComponent(s.id)}/interrupt`), live: false });

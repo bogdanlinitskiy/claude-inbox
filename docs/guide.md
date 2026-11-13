@@ -81,7 +81,8 @@ because you answered it in the terminal instead, the row goes back to what it sh
 - **Diff** — `git diff` against the merge base with the repository's default branch, including uncommitted and
   untracked files.
 - **Group** — only for a session of a group: the group's sessions with their state (click one to open it), and
-  the messages they sent each other.
+  the messages they sent each other. **Close group** there closes all of them at once (click twice); the worktrees
+  and branches stay.
 
 ![The Terminal tab, then the session's change in the Diff tab](media/tabs.gif)
 
