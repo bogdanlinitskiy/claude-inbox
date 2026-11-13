@@ -85,12 +85,24 @@
 <dialog class="modal" id="overlay" aria-label="New session">
   <form class="modal-body" id="new-form" autocomplete="off">
     <h3>New session</h3>
-    <p class="hint">Starts Claude Code in its own tmux session, in auto mode. It shows up here and alerts you when it needs you.</p>
-    <div class="field">
+    <div class="seg" role="tablist" aria-label="How many sessions">
+      <button type="button" role="tab" id="ns-single" aria-selected="true">Single</button>
+      <button type="button" role="tab" id="ns-multi" aria-selected="false">Multi</button>
+    </div>
+    <p class="hint" id="ns-hint">Starts Claude Code in its own tmux session, in auto mode. It shows up here and alerts you when it needs you.</p>
+    <div class="field" id="ns-repo-field">
       <label for="ns-repo">Repository</label>
       <select id="ns-repo" required></select>
     </div>
-    <label class="check"><input type="checkbox" id="ns-worktree"> Start in a new git worktree</label>
+    <div class="field" id="ns-repos-field" hidden>
+      <span class="lbl" id="ns-repos-label">Repositories, one session each <span id="ns-picked"></span></span>
+      <div class="picker">
+        <input type="search" id="ns-repo-q" placeholder="Filter repositories" aria-label="Filter repositories" autocomplete="off">
+        <div class="chips" id="ns-chips" aria-label="Picked repositories"></div>
+        <div class="repo-scroll" id="ns-repos" role="group" aria-labelledby="ns-repos-label"></div>
+      </div>
+    </div>
+    <label class="check"><input type="checkbox" id="ns-worktree"> <span id="ns-worktree-label">Start in a new git worktree</span></label>
     <div class="field" id="ns-branch-field" hidden>
       <label for="ns-branch">Branch</label>
       <input id="ns-branch" placeholder="e.g. PROJ-12-part-2">
@@ -98,7 +110,11 @@
     </div>
     <div class="field"><label for="ns-ticket">Ticket</label><input id="ns-ticket" placeholder="Empty: taken from the branch name"></div>
     <div class="field"><label for="ns-title">Title</label><input id="ns-title" placeholder="Optional"></div>
-    <div class="field"><label for="ns-prompt">First message</label><textarea id="ns-prompt" rows="3" placeholder="Optional, e.g. Fix the flaky login test"></textarea></div>
+    <div class="box" id="ns-group-opts" hidden>
+      <label class="check"><input type="checkbox" id="ns-coordinator" checked><span>Add a coordinator<small>One more session, in the folder that holds the repositories. It gets the first message, hands out the work and collects the reports.</small></span></label>
+      <label class="check"><input type="checkbox" id="ns-share" checked><span>Let the sessions read each other's folders</span></label>
+    </div>
+    <div class="field"><label for="ns-prompt" id="ns-prompt-label">First message</label><textarea id="ns-prompt" rows="3" placeholder="Optional, e.g. Fix the flaky login test"></textarea></div>
     <p class="form-error" id="ns-error" hidden></p>
     <div class="modal-actions">
       <button type="button" class="btn" id="ns-cancel">Cancel</button>
@@ -119,6 +135,7 @@
 <script src="js/actions.js"></script>
 <script src="js/terminal.js"></script>
 <script src="js/diff.js"></script>
+<script src="js/group.js"></script>
 <script src="js/selection.js"></script>
 <script src="js/alerts.js"></script>
 <script src="js/new-session.js"></script>

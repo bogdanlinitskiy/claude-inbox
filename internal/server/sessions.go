@@ -38,6 +38,49 @@ func (s *Server) startSession(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusCreated, info)
 }
 
+// startGroup answers with the sessions it started; when one of them failed to start, the others keep running and
+// the error says which.
+func (s *Server) startGroup(w http.ResponseWriter, r *http.Request) {
+	var req session.StartGroupRequest
+	if !decode(w, r, &req) {
+		return
+	}
+	infos, err := s.cfg.Sessions.StartGroup(r.Context(), req)
+	if err != nil {
+		s.sessionError(w, r, err)
+		return
+	}
+	writeJSON(w, http.StatusCreated, infos)
+}
+
+type sendRequest struct {
+	To   string `json:"to"`
+	Text string `json:"text"`
+}
+
+// send is how claude-inbox send, run by a session of a group, messages another session of that group.
+func (s *Server) send(w http.ResponseWriter, r *http.Request) {
+	var req sendRequest
+	if !decode(w, r, &req) {
+		return
+	}
+	info, err := s.cfg.Sessions.Send(r.Context(), r.PathValue("id"), req.To, req.Text)
+	if err != nil {
+		s.sessionError(w, r, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, info)
+}
+
+func (s *Server) groupMessages(w http.ResponseWriter, r *http.Request) {
+	msgs, err := s.cfg.Sessions.GroupMessages(r.PathValue("id"))
+	if err != nil {
+		s.sessionError(w, r, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, msgs)
+}
+
 type renameRequest struct {
 	Title string `json:"title"`
 }
@@ -208,6 +251,12 @@ func (s *Server) sessionError(w http.ResponseWriter, r *http.Request, err error)
 		writeError(w, http.StatusConflict, codeConflict, "This conversation already runs in another session.")
 	case errors.Is(err, session.ErrNoFolder):
 		writeError(w, http.StatusConflict, codeConflict, "The folder of this conversation no longer exists.")
+	case errors.Is(err, session.ErrNoRepos):
+		writeValidation(w, "Validation error.", map[string]string{"dirs": "Pick at least one repository."})
+	case errors.Is(err, session.ErrNoGroup):
+		writeError(w, http.StatusConflict, codeConflict, "This session was not started in a group.")
+	case errors.Is(err, session.ErrNotInGroup):
+		writeValidation(w, "Validation error.", map[string]string{"to": "No session of that name in this group."})
 	case errors.Is(err, session.ErrInvalidRepo):
 		writeValidation(w, "Validation error.", map[string]string{"dir": "Pick one of the listed repositories."})
 	case errors.Is(err, answer.ErrEmptyText):

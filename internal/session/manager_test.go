@@ -187,6 +187,7 @@ func newFixture(t *testing.T) *fixture {
 		Alive:       func(p proc.Process) bool { return !f.dead[p] },
 		Roots:       []string{root},
 		HookCommand: []string{"/home/user/.local/bin/claude-inbox", "hook", "--state-dir", f.store.Root()},
+		SendCommand: []string{"/home/user/.local/bin/claude-inbox", "send", "--state-dir", f.store.Root()},
 		Claude:      "claude",
 		Transcripts: t.TempDir(),
 		// Tickets as some teams chain them in a branch name, to show the pattern is the configured one.

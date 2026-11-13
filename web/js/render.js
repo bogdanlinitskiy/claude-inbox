@@ -55,6 +55,7 @@ function toneOf(s) {
 }
 
 function rowHtml(s) {
+  if (s.group) return groupRowHtml(s);
   const k = KIND[s.state.kind] || KIND.unknown;
   const text = summary(s);
   // The stripe and the block heading already say which state this is, so the pill stays only where the kind
@@ -79,6 +80,41 @@ function rowHtml(s) {
     <span class="row-head"><span class="row-title" title="${esc(name)}">${esc(name)}</span><span class="age">${since(s.state.changedAt)}</span></span>
     ${meta ? `<span class="row-top">${meta}</span>` : ''}
     <span class="row-text">${esc(text)}</span>
+  </button>`;
+}
+
+// groupRowHtml is a row inside a group's block. The header carries the ticket, title and branch, and no state
+// block heading sits above the row, so the row names its repository and its state.
+function groupRowHtml(s) {
+  const k = s.state.stalled ? STALLED : KIND[s.state.kind] || KIND.unknown;
+  const coordinator = s.role === 'coordinator';
+  const name = coordinator ? 'Coordinator' : short(s.repo) || 'unknown folder';
+  const flag = s.delivery === 'failed' ? '<span class="row-flag">Not sent</span>' : '';
+  return `<button type="button" class="row in-group ${toneOf(s)}" data-id="${esc(s.id)}" aria-current="${s.id === selectedId}">
+    <span class="row-head"><span class="row-title" title="${esc(s.tmuxName)}">${esc(name)}</span><span class="age">${since(s.state.changedAt)}</span></span>
+    <span class="row-top"><span class="state ${k.cls}">${k.label}</span>${coordinator ? `<span class="row-repo">${esc(short(s.repo))}</span>` : ''}${flag}</span>
+    <span class="row-text">${esc(summary(s))}</span>
+  </button>`;
+}
+
+// groupHeadHtml heads a group's block: what the group works on, and how its sessions sit across the states. It
+// turns amber while one of them needs you, folded or not.
+function groupHeadHtml(g) {
+  const lead = g.lead;
+  const worker = g.members.find(s => s.role !== 'coordinator');
+  const branch = worker?.branch || '';
+  const mix = [
+    g.counts.needs ? `<b>${g.counts.needs} waiting</b>` : '',
+    g.counts.working ? `${g.counts.working} working` : '',
+    g.counts.done ? `${g.counts.done} done` : '',
+  ].filter(Boolean).join(' \u00b7 ');
+  const open = !foldedGroups.has(g.id);
+  return `<button type="button" class="gg-head${g.counts.needs ? ' gg-wait' : ''}" data-group="${esc(g.id)}" aria-expanded="${open}" title="${open ? 'Fold' : 'Unfold'} this group">
+    <span class="gg-chev" aria-hidden="true"></span>
+    <span class="gg-tid">${esc(lead.ticket || 'Group')}</span>
+    <span class="gg-title">${esc(lead.title || '')}</span>
+    <span class="gg-n">${g.members.length}</span>
+    <span class="gg-mix">${mix}${branch ? ` \u00b7 <span class="gg-branch">${esc(branch)}</span>` : ''}</span>
   </button>`;
 }
 
@@ -112,7 +148,7 @@ function renderList() {
   }
   const list = $('#list');
   tixCount = ticketCount();
-  const blocks = ordered();
+  const blocks = railBlocks();
   const scope = ticketFilter ? scopeHtml() : '';
   if (!blocks.length) {
     const text = query ? `Nothing matches “${query}”.`
@@ -122,9 +158,11 @@ function renderList() {
     return;
   }
   // One block needs no heading: the pressed filter already names it. The ticket view keeps every heading,
-  // because the split across states is the whole point of that view.
+  // because the split across states is the whole point of that view. A group always has its header.
   const heads = blocks.length > 1 || !!ticketFilter;
-  list.innerHTML = scope + blocks.map(b => `<section class="group" role="group" aria-label="${esc(b.label)}">
+  list.innerHTML = scope + blocks.map(b => b.group
+    ? `<section class="group sgroup" role="group" aria-label="${esc(`Group ${b.group.lead.ticket || ''}`)}">${groupHeadHtml(b.group)}${b.list.map(rowHtml).join('')}</section>`
+    : `<section class="group" role="group" aria-label="${esc(b.label)}">
       ${heads ? `<div class="g-head g-${b.key}"><span class="g-label">${esc(b.label)}</span><span class="g-count">${b.list.length}</span></div>` : ''}
       ${b.list.map(rowHtml).join('')}
     </section>`).join('');
@@ -163,15 +201,22 @@ function renderDetail() {
     if (tab === 'diff') {
       unmountTerminal();
       loadDiff(s);
+    } else if (tab === 'group') {
+      unmountTerminal();
+      loadGroup(s);
     } else {
       mountTerminal(s);
     }
+  } else if (tab === 'group') {
+    // Any change may be a member moving on or a message arriving, so the open Group tab follows along.
+    loadGroup(s);
   }
 }
 
 // A session outside tmux has no terminal the app can attach to.
 function tabsOf(s) {
-  return s.inTmux ? ['terminal', 'diff'] : ['diff'];
+  const list = s.inTmux ? ['terminal', 'diff'] : ['diff'];
+  return s.group ? [...list, 'group'] : list;
 }
 
 function currentTab(s) {
@@ -215,7 +260,7 @@ async function saveRename(s, title) {
 }
 
 function headHtml(s) {
-  const k = KIND[s.state.kind] || KIND.unknown;
+  const k = s.state.stalled ? STALLED : KIND[s.state.kind] || KIND.unknown;
   const sinceLabel = SINCE_LABEL[s.state.kind] || 'waiting';
   const closeLabel = s.discovered ? 'Hide' : closeArmed === s.id ? 'Click again to close' : 'Close session';
   return `
@@ -233,6 +278,7 @@ function headHtml(s) {
     <div class="d-meta">
       ${s.branch ? `<span${s.discovered ? '' : ` title="tmux ${esc(s.tmuxName)}"`}>${esc(s.branch)}</span>` : ''}
       ${s.worktree ? `<span title="${esc(s.dir)}">worktree</span>` : ''}
+      ${s.group ? `<span>${esc(s.role)} in a group of ${groupSize(s.group)}</span>` : ''}
       ${s.discovered ? `<span>started outside the app${s.inTmux ? ', in tmux' : ', not in tmux'}</span>` : ''}
       <span>${esc(sinceLabel)} ${since(s.state.changedAt)}</span>
       <span>started ${since(s.createdAt)} ago</span>

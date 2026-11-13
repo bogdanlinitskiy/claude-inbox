@@ -13,6 +13,7 @@ import (
 	"github.com/bogdanlinitskiy/claude-inbox/internal/action"
 	"github.com/bogdanlinitskiy/claude-inbox/internal/gitdiff"
 	"github.com/bogdanlinitskiy/claude-inbox/internal/session"
+	"github.com/bogdanlinitskiy/claude-inbox/internal/store"
 	"github.com/bogdanlinitskiy/claude-inbox/internal/transcript"
 )
 
@@ -34,6 +35,9 @@ type Sessions interface {
 	List() []session.Info
 	Get(id string) (session.Info, error)
 	Start(ctx context.Context, req session.StartRequest) (session.Info, error)
+	StartGroup(ctx context.Context, req session.StartGroupRequest) ([]session.Info, error)
+	Send(ctx context.Context, fromID, to, text string) (session.Info, error)
+	GroupMessages(group string) ([]store.GroupMessage, error)
 	Close(ctx context.Context, id string) error
 	Answer(ctx context.Context, id string, a session.AnswerRequest) (session.Info, error)
 	Message(ctx context.Context, id, prompt string) (session.Info, error)
@@ -83,11 +87,14 @@ func New(cfg Config) *Server {
 	api := http.NewServeMux()
 	api.HandleFunc("GET /api/sessions", s.listSessions)
 	api.HandleFunc("POST /api/sessions", s.startSession)
+	api.HandleFunc("POST /api/groups", s.startGroup)
+	api.HandleFunc("GET /api/group/{id}/messages", s.groupMessages)
 	api.HandleFunc("GET /api/session/{id}", s.getSession)
 	api.HandleFunc("PATCH /api/session/{id}", s.renameSession)
 	api.HandleFunc("DELETE /api/session/{id}", s.closeSession)
 	api.HandleFunc("POST /api/session/{id}/answer", s.answer)
 	api.HandleFunc("POST /api/session/{id}/message", s.message)
+	api.HandleFunc("POST /api/session/{id}/send", s.send)
 	api.HandleFunc("POST /api/session/{id}/interrupt", s.interrupt)
 	api.HandleFunc("POST /api/session/{id}/action", s.runAction)
 	api.HandleFunc("GET /api/session/{id}/diff", s.diff)
@@ -121,7 +128,7 @@ func (s *Server) page(w http.ResponseWriter, r *http.Request) {
 			writeError(w, http.StatusUnauthorized, codeAccessDenied, "This link is from an earlier run. Open the link that claude-inbox serve printed.")
 			return
 		}
-		http.SetCookie(w, &http.Cookie{Name: tokenCookie, Value: s.cfg.Token, Path: "/", HttpOnly: true, SameSite: http.SameSiteStrictMode})
+		http.SetCookie(w, &http.Cookie{Name: TokenCookie, Value: s.cfg.Token, Path: "/", HttpOnly: true, SameSite: http.SameSiteStrictMode})
 		http.Redirect(w, r, "/", http.StatusSeeOther)
 		return
 	}

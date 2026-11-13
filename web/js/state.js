@@ -27,6 +27,9 @@ const KIND = {
   done: { label: 'Done', cls: 's-done' },
   ended: { label: 'Ended', cls: 's-ended' },
 };
+// A working session of a group that fired nothing for a while (internal/state, EventStalled).
+const STALLED = { label: 'No activity', cls: 's-fail' };
+const STALLED_TEXT = 'Working, but nothing has happened for several minutes. It may have lost its connection: check the Terminal tab.';
 const SINCE_LABEL = { working: 'for', done: 'finished', idle: 'idle for' };
 const EMPTY = {
   all: { head: 'No sessions yet', body: 'Start one with New session, or run claude-tmux in a terminal.' },
@@ -37,7 +40,7 @@ const EMPTY = {
 };
 // The diff bar is five blocks wide, like a review tool's.
 const DIFF_BLOCKS = 5;
-const TAB_LABEL = { terminal: 'Terminal', diff: 'Diff', preview: 'Preview' };
+const TAB_LABEL = { terminal: 'Terminal', diff: 'Diff', preview: 'Preview', group: 'Group' };
 
 const sessions = new Map();
 // History: past conversations from Claude Code's transcripts that no session in the list holds, latest first.
@@ -56,6 +59,10 @@ let ticketFilter = null;
 // How many live sessions each ticket has, rebuilt per draw. A row shows its ticket as a chip only when the
 // ticket has more than one, because a chip that narrows the rail to a single row buys nothing.
 let tixCount = new Map();
+// The groups whose rows are folded away under their header, by group id.
+const foldedGroups = new Set();
+// The messages each group's sessions sent each other, by group id, as last fetched for the Group tab.
+const groupMessages = new Map();
 let alertsOn = readSetting('alerts', true);
 // Sound is off until asked for: a page that beeps unprompted is worse than one that stays quiet. Turning it
 // on is the click that lets the browser open an AudioContext at all.

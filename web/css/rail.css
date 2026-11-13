@@ -166,6 +166,41 @@
   .row-flag { font: 600 var(--t-xs) var(--font-ui); color: var(--fail); }
   .row-tag { font: 500 var(--t-xs) var(--font-mono); color: var(--faint); white-space: nowrap; }
 
+  /* A group started together: one header over its rows. It turns amber, folded or not, while one of them needs
+     you, because a blocked member stays inside its group rather than moving to Needs you. */
+  .gg-head {
+    position: sticky; top: 0; z-index: 2;
+    display: grid; grid-template-columns: auto auto minmax(0, 1fr) auto; align-items: center; gap: 2px var(--s2);
+    width: 100%; padding: 9px 14px 8px; text-align: left;
+    border: 0; border-bottom: 1px solid var(--line);
+    background: var(--surface-2); color: inherit;
+    box-shadow: inset 3px 0 0 var(--line-2);
+
+    &:hover { background: var(--surface-3); }
+    & .gg-chev::before { content: "▾"; display: inline-block; font-size: 11px; color: var(--faint); transition: rotate 120ms ease; }
+    &[aria-expanded="false"] .gg-chev::before { rotate: -90deg; }
+    & .gg-tid { font: 650 var(--t-sm) var(--font-mono); }
+    & .gg-title { min-width: 0; font-size: var(--t-xs); color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    & .gg-n { font: 600 var(--t-xs) var(--font-mono); color: var(--faint); }
+    & .gg-mix {
+      grid-column: 2 / -1; min-width: 0; font: 500 var(--t-xs) var(--font-mono); color: var(--faint);
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    & .gg-mix b { color: var(--wait); font-weight: 650; }
+  }
+  .gg-head.gg-wait {
+    background: color-mix(in oklab, var(--wait) 13%, var(--surface-2));
+    box-shadow: inset 3px 0 0 var(--wait);
+    & .gg-tid { color: var(--wait); }
+  }
+  .list:has(.scope) .gg-head { top: 38px; }
+
+  /* Rows inside a group sit one step in, so the block reads as one set. */
+  .row.in-group {
+    padding-left: 28px;
+    &::before { left: 12px; }
+  }
+
   /* An empty state says what is true, then what to do about it. */
   .empty-list {
     padding: 32px var(--s4); margin: var(--s4); text-align: center; color: var(--faint);

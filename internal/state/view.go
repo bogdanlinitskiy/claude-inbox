@@ -19,6 +19,7 @@ type View struct {
 	LastMessage    string      `json:"lastMessage,omitempty"`
 	Failed         bool        `json:"failed,omitempty"`
 	FromScreen     bool        `json:"fromScreen,omitempty"`
+	Stalled        bool        `json:"stalled,omitempty"`
 }
 
 func (s Session) View() View {
@@ -35,6 +36,7 @@ func (s Session) View() View {
 		LastMessage:    s.LastMessage,
 		Failed:         s.Failed,
 		FromScreen:     s.FromScreen,
+		Stalled:        s.Stalled,
 	}
 }
 

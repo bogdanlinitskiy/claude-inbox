@@ -123,6 +123,10 @@ function replyHtml(s) {
     case 'unknown':
       return ask('k-unknown', 'Check the terminal', '<p class="ask-text">The session waits on something the app does not recognize. Answer it in the Terminal tab.</p>');
     case 'working':
+      if (st.stalled) {
+        return ask('k-unknown', 'No activity', `<p class="ask-text">${esc(STALLED_TEXT)}</p>`)
+          + delivery + sendForm('Message this session. It reads it after the current step.', true);
+      }
       return delivery + sendForm('Message this session. It reads it after the current step.', true);
     case 'done':
       return delivery + sendForm('Ask for something else…', false);

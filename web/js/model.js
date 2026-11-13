@@ -14,7 +14,7 @@ function summary(s) {
     case 'permission': return st.permission ? `${st.permission.tool}: ${st.permission.detail}` : 'Asks for permission';
     case 'trust': return 'Asks whether to trust this folder';
     case 'unknown': return 'Waiting on something the app does not recognize. Check the terminal.';
-    case 'working': return st.activity || 'Working';
+    case 'working': return st.stalled ? STALLED_TEXT : st.activity || 'Working';
     case 'done': return st.lastMessage || 'Finished';
     case 'idle': return 'Waiting for a prompt';
     default: return 'Ended';
@@ -42,7 +42,7 @@ const cluster = s => s.ticket || `\u0000${s.id}`;
 // conversation is in History.
 function ordered() {
   const byBlock = new Map(BLOCK_ORDER.map(k => [k, []]));
-  for (const s of sessions.values()) if (shown(s)) byBlock.get(group(s)).push(s);
+  for (const s of sessions.values()) if (shown(s) && !s.group) byBlock.get(group(s)).push(s);
   const blocks = [];
   for (const key of BLOCK_ORDER) {
     const list = byBlock.get(key);
@@ -61,10 +61,43 @@ function ordered() {
   return blocks;
 }
 
+// sessionGroups are the groups started together (New session, Multi), each one block of the rail between Needs
+// you and Working. A member stays in its group whatever its state; a group with a member that needs you comes
+// first and says so in its header, so a blocked session is still seen at the top. Inside a group the coordinator
+// leads, then the repositories by name. counts covers every member; list only the ones the filters let through.
+function sessionGroups() {
+  const byId = new Map();
+  for (const s of sessions.values()) {
+    if (!s.group) continue;
+    if (!byId.has(s.group)) byId.set(s.group, { id: s.group, members: [], latest: 0 });
+    const g = byId.get(s.group);
+    g.members.push(s);
+    g.latest = Math.max(g.latest, parseTime(s.state.changedAt));
+  }
+  const rank = s => (s.role === 'coordinator' ? '0' : '1') + (s.repo || '');
+  const list = [...byId.values()].map(g => {
+    g.members.sort((a, b) => (rank(a) < rank(b) ? -1 : rank(a) > rank(b) ? 1 : 0));
+    g.counts = { needs: 0, working: 0, done: 0 };
+    for (const s of g.members) g.counts[group(s)] += 1;
+    g.list = g.members.filter(shown);
+    g.lead = g.members[0];
+    return g;
+  }).filter(g => g.list.length);
+  return list.sort((a, b) => (b.counts.needs > 0) - (a.counts.needs > 0) || b.latest - a.latest);
+}
+
+// railBlocks is the rail top to bottom: Needs you, the groups, then Working and Done.
+function railBlocks() {
+  const blocks = ordered();
+  const groups = sessionGroups().map(g => ({ key: 'group', group: g, list: foldedGroups.has(g.id) ? [] : g.list }));
+  const at = blocks[0]?.key === 'needs' ? 1 : 0;
+  return [...blocks.slice(0, at), ...groups, ...blocks.slice(at)];
+}
+
 // listed is every row on screen, top to bottom.
 function listed() {
   if (filter === 'history') return pastList();
-  return ordered().flatMap(b => b.list);
+  return railBlocks().flatMap(b => b.list);
 }
 
 // ticketCount counts the live sessions on each ticket, across every state and whatever the rail is

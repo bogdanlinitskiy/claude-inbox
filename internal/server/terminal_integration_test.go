@@ -74,7 +74,7 @@ func startLiveTerminal(t *testing.T) *liveTerminal {
 
 	header := http.Header{}
 	header.Set("Origin", ts.URL)
-	header.Set("Cookie", tokenCookie+"="+testToken)
+	header.Set("Cookie", TokenCookie+"="+testToken)
 	conn, _, err := websocket.Dial(context.Background(), "ws://"+u.Host+"/api/session/"+sessionID+"/terminal", &websocket.DialOptions{HTTPHeader: header})
 	require.NoError(t, err)
 	return &liveTerminal{conn: conn, tmux: client, socket: socket}

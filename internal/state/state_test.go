@@ -378,3 +378,26 @@ func TestAnswered(t *testing.T) {
 	next := Session{Kind: KindPermission, Seq: 7, Permission: &Permission{Tool: "Bash"}}
 	assert.Equal(t, next, Apply(next, appPayload(t, at, EventAnswered, SeqPayload{Seq: 6})), "the next prompt stays")
 }
+
+func TestStalled(t *testing.T) {
+	at := start.Add(10 * time.Minute)
+	working := Session{Kind: KindWorking, Since: start, Seq: 4, Activity: "Bash: make test"}
+
+	stalled := Apply(working, appPayload(t, at, EventStalled, SeqPayload{Seq: working.Seq}))
+
+	assert.Equal(t, KindWorking, stalled.Kind)
+	assert.True(t, stalled.Stalled)
+	assert.True(t, stalled.NeedsYou(), "a silent session needs a look")
+	assert.True(t, stalled.View().Stalled)
+	assert.Equal(t, working.Seq+1, stalled.Seq)
+	assert.Equal(t, working.Activity, stalled.Activity)
+
+	assert.Equal(t, working, Apply(working, appPayload(t, at, EventStalled, SeqPayload{Seq: 3})), "for an older state")
+	done := Session{Kind: KindDone, Seq: 4}
+	assert.Equal(t, done, Apply(done, appPayload(t, at, EventStalled, SeqPayload{Seq: done.Seq})), "only a working session stalls")
+
+	moved := Apply(stalled, hookRecord(t, at, map[string]any{"hook_event_name": "PostToolUse"}))
+	assert.Equal(t, KindWorking, moved.Kind)
+	assert.False(t, moved.Stalled, "any hook clears it")
+	assert.False(t, moved.NeedsYou())
+}

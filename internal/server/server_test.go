@@ -21,6 +21,7 @@ import (
 	"github.com/bogdanlinitskiy/claude-inbox/internal/gitdiff"
 	"github.com/bogdanlinitskiy/claude-inbox/internal/session"
 	"github.com/bogdanlinitskiy/claude-inbox/internal/state"
+	"github.com/bogdanlinitskiy/claude-inbox/internal/store"
 	"github.com/bogdanlinitskiy/claude-inbox/internal/transcript"
 )
 
@@ -30,12 +31,18 @@ const (
 	host      = "127.0.0.1:7788"
 	origin    = "http://127.0.0.1:7788"
 	sessionID = "abcd1234"
+	groupID   = "grp12345"
 	pageText  = "the page"
 )
 
 type fakeSessions struct {
 	infos     map[string]session.Info
 	started   []session.StartRequest
+	groups    []session.StartGroupRequest
+	// sends are the claude-inbox send calls as "from to text"; groupMsgs is what GroupMessages returns.
+	sends     []string
+	sendErr   error
+	groupMsgs []store.GroupMessage
 	answers   []session.AnswerRequest
 	messages  []string
 	closed    []string
@@ -75,6 +82,29 @@ func (f *fakeSessions) Get(id string) (session.Info, error) {
 func (f *fakeSessions) Start(_ context.Context, req session.StartRequest) (session.Info, error) {
 	f.started = append(f.started, req)
 	return f.infos[sessionID], f.startErr
+}
+
+func (f *fakeSessions) StartGroup(_ context.Context, req session.StartGroupRequest) ([]session.Info, error) {
+	f.groups = append(f.groups, req)
+	if f.startErr != nil {
+		return nil, f.startErr
+	}
+	return []session.Info{f.infos[sessionID]}, nil
+}
+
+func (f *fakeSessions) Send(_ context.Context, fromID, to, text string) (session.Info, error) {
+	f.sends = append(f.sends, fromID+" "+to+" "+text)
+	if f.sendErr != nil {
+		return session.Info{}, f.sendErr
+	}
+	return f.Get(sessionID)
+}
+
+func (f *fakeSessions) GroupMessages(group string) ([]store.GroupMessage, error) {
+	if group != groupID {
+		return nil, session.ErrNotFound
+	}
+	return f.groupMsgs, nil
 }
 
 func (f *fakeSessions) Close(_ context.Context, id string) error {
@@ -176,7 +206,7 @@ func newFixture() *fixture {
 func request(method, path, body string) *http.Request {
 	r := httptest.NewRequest(method, path, strings.NewReader(body))
 	r.Host = host
-	r.AddCookie(&http.Cookie{Name: tokenCookie, Value: testToken})
+	r.AddCookie(&http.Cookie{Name: TokenCookie, Value: testToken})
 	if method != http.MethodGet {
 		r.Header.Set("Origin", origin)
 	}
@@ -209,7 +239,7 @@ func TestGuard(t *testing.T) {
 		{name: "no cookie", method: http.MethodGet, prepare: func(r *http.Request) { r.Header.Del("Cookie") }, wantCode: http.StatusUnauthorized, wantBody: codeAccessDenied},
 		{name: "wrong cookie", method: http.MethodGet, prepare: func(r *http.Request) {
 			r.Header.Del("Cookie")
-			r.AddCookie(&http.Cookie{Name: tokenCookie, Value: "guess"})
+			r.AddCookie(&http.Cookie{Name: TokenCookie, Value: "guess"})
 		}, wantCode: http.StatusUnauthorized, wantBody: codeAccessDenied},
 		{name: "post without origin", method: http.MethodPost, prepare: func(r *http.Request) { r.Header.Del("Origin") }, wantCode: http.StatusForbidden, wantBody: codeForbidden},
 		{name: "post from another site", method: http.MethodPost, prepare: func(r *http.Request) { r.Header.Set("Origin", "https://evil.example") }, wantCode: http.StatusForbidden, wantBody: codeForbidden},
@@ -351,6 +381,81 @@ func TestStartInvalidRepo(t *testing.T) {
 	require.NoError(t, json.Unmarshal(w.Body.Bytes(), &body))
 	assert.Equal(t, codeValidation, body.Code)
 	assert.Contains(t, body.Errors, "dir")
+}
+
+func TestStartGroup(t *testing.T) {
+	f := newFixture()
+	body := `{"dirs":["/work/acme-contact","/work/acme-wallet"],"ticket":"PROJ-1600","prompt":"Split it","worktree":true,"branch":"PROJ-1600-x","coordinator":true,"shareDirs":true}`
+
+	w := f.do(request(http.MethodPost, "/api/groups", body))
+
+	assert.Equal(t, http.StatusCreated, w.Code)
+	want := session.StartGroupRequest{
+		Dirs: []string{"/work/acme-contact", "/work/acme-wallet"}, Ticket: "PROJ-1600", Prompt: "Split it",
+		Worktree: true, Branch: "PROJ-1600-x", Coordinator: true, ShareDirs: true,
+	}
+	assert.Equal(t, []session.StartGroupRequest{want}, f.sessions.groups)
+	var infos []session.Info
+	require.NoError(t, json.Unmarshal(w.Body.Bytes(), &infos))
+	assert.Len(t, infos, 1)
+}
+
+func TestStartGroupWithoutRepositories(t *testing.T) {
+	f := newFixture()
+	f.sessions.startErr = session.ErrNoRepos
+
+	w := f.do(request(http.MethodPost, "/api/groups", `{"dirs":[]}`))
+
+	assert.Equal(t, http.StatusBadRequest, w.Code)
+	var body errorBody
+	require.NoError(t, json.Unmarshal(w.Body.Bytes(), &body))
+	assert.Contains(t, body.Errors, "dirs")
+}
+
+func TestSend(t *testing.T) {
+	f := newFixture()
+	to, text := "PROJ-1-wallet", "Done: claim added."
+
+	w := f.do(request(http.MethodPost, "/api/session/"+sessionID+"/send", `{"to":"`+to+`","text":"`+text+`"}`))
+
+	assert.Equal(t, http.StatusOK, w.Code)
+	assert.Equal(t, []string{sessionID + " " + to + " " + text}, f.sessions.sends)
+}
+
+func TestSendErrors(t *testing.T) {
+	cases := []struct {
+		err        error
+		wantStatus int
+		wantCode   string
+	}{
+		{err: session.ErrNoGroup, wantStatus: http.StatusConflict, wantCode: codeConflict},
+		{err: session.ErrNotInGroup, wantStatus: http.StatusBadRequest, wantCode: codeValidation},
+		{err: session.ErrNotFound, wantStatus: http.StatusNotFound, wantCode: codeNotFound},
+	}
+	for _, tc := range cases {
+		t.Run(tc.err.Error(), func(t *testing.T) {
+			f := newFixture()
+			f.sessions.sendErr = tc.err
+
+			w := f.do(request(http.MethodPost, "/api/session/"+sessionID+"/send", `{"to":"x","text":"hi"}`))
+
+			assert.Equal(t, tc.wantStatus, w.Code)
+			assert.Equal(t, tc.wantCode, errorCode(t, w))
+		})
+	}
+}
+
+func TestGroupMessages(t *testing.T) {
+	f := newFixture()
+	f.sessions.groupMsgs = []store.GroupMessage{{From: "PROJ-1-coord", To: "PROJ-1-wallet", Text: "Add the claim."}}
+
+	w := f.do(request(http.MethodGet, "/api/group/"+groupID+"/messages", ""))
+
+	assert.Equal(t, http.StatusOK, w.Code)
+	var msgs []store.GroupMessage
+	require.NoError(t, json.Unmarshal(w.Body.Bytes(), &msgs))
+	assert.Equal(t, f.sessions.groupMsgs, msgs)
+	assert.Equal(t, http.StatusNotFound, f.do(request(http.MethodGet, "/api/group/unknown1/messages", "")).Code)
 }
 
 func TestBodyValidation(t *testing.T) {
@@ -554,7 +659,7 @@ func TestStream(t *testing.T) {
 	r, err := http.NewRequest(http.MethodGet, ts.URL+"/api/stream", http.NoBody)
 	require.NoError(t, err)
 	r.Host = host
-	r.AddCookie(&http.Cookie{Name: tokenCookie, Value: testToken})
+	r.AddCookie(&http.Cookie{Name: TokenCookie, Value: testToken})
 
 	resp, err := http.DefaultClient.Do(r)
 	require.NoError(t, err)

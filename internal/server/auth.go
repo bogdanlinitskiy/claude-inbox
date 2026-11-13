@@ -11,7 +11,8 @@ import (
 
 const (
 	tokenBytes  = 32
-	tokenCookie = "inbox_token"
+	// TokenCookie carries the token; claude-inbox send sets it too.
+	TokenCookie = "inbox_token"
 	tokenQuery  = "token"
 )
 
@@ -62,7 +63,7 @@ func (s *Server) requireToken(next http.Handler) http.Handler {
 }
 
 func (s *Server) hasToken(r *http.Request) bool {
-	cookie, err := r.Cookie(tokenCookie)
+	cookie, err := r.Cookie(TokenCookie)
 	return err == nil && s.tokenMatches(cookie.Value)
 }
 
