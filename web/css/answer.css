@@ -72,23 +72,48 @@
     }
   }
 
-  .send {
-    display: flex; align-items: flex-end; gap: var(--s2);
+  .send { display: grid; }
+
+  /* The composer is one object: what you type, the actions that type for you, and the controls that send it.
+     The outline and the focus ring belong to the composer, not to the textarea inside it, so the whole control
+     lights up as one. The outline is an inset shadow, like the ask card's, so focus does not shift the layout.
+     It is drawn at panel radius because it is a surface holding controls, the way the action menu is.
+
+     The paddings put the placeholder and the first action label on the same 15px column as the ask card's text
+     above them, so the panel reads as one left edge and not three. */
+  .composer {
+    display: grid;
+    border-radius: var(--r-panel);
+    background: var(--surface-2);      /* a step above the pane, which is --surface-1 */
+    box-shadow: var(--lift-1), inset 0 0 0 1px var(--line-2);
+    transition: box-shadow 140ms ease;
+
+    &:focus-within {
+      box-shadow: var(--lift-1), inset 0 0 0 1px var(--accent),
+                  0 0 0 3px color-mix(in oklab, var(--accent) 20%, transparent);
+    }
 
     & textarea {
-      flex: 1; min-width: 0;
       field-sizing: content;            /* grows with the text; no measuring code */
-      min-height: 38px; max-height: 40vh; overflow-y: auto; resize: none;
-      padding: 9px 12px;
-      border: 1px solid var(--line-2); border-radius: var(--r-control);
-      background: var(--surface-2); color: var(--fg); box-shadow: var(--lift-1);
+      min-height: 40px; max-height: 40vh; overflow-y: auto; resize: none;
+      padding: 10px 15px 3px;
+      border: 0; background: none; color: var(--fg);
       &::placeholder { color: var(--faint); }
-      &:focus {
-        outline: 0; border-color: var(--accent);
-        box-shadow: var(--lift-1), 0 0 0 3px color-mix(in oklab, var(--accent) 22%, transparent);
-      }
+      &:focus { outline: 0; }
     }
-    & .btn { height: 38px; }
+
+    /* flex-end, so the buttons stay with the last row when the actions wrap onto two. */
+    & .composer-foot { display: flex; align-items: flex-end; gap: var(--s2); padding: 6px 6px 7px; }
+    & .composer-send { display: flex; align-items: center; gap: 6px; }
+    /* The hairline says where typing ends, which only matters once there is something to type into. */
+    & textarea + .composer-foot { border-top: 1px solid var(--line); }
+
+    /* Nothing to type in this state: the actions are all there is, so the box around them would be claiming
+       an input that is not there. The chips keep their place and their look. */
+    &.bare {
+      background: none; box-shadow: none;
+      & .composer-foot { padding: 0 0 0 6px; }
+    }
   }
 
   .delivery {

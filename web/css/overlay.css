@@ -113,7 +113,9 @@
     display: flex; flex-wrap: wrap; gap: 5px; padding: var(--s2) var(--s2) 0;
     &:empty { display: none; }
   }
-  .chip {
+  /* Scoped to its own container: the action bar calls its buttons .chip too, and this layer comes after that
+     one, so an unscoped rule here restyles the actions as repository pills. */
+  .chips .chip {
     display: inline-flex; align-items: center; gap: 2px; padding: 1px 2px 1px 9px;
     border: 1px solid var(--line-2); border-radius: var(--r-pill); background: var(--surface-1);
     font: 500 var(--t-xs) var(--font-mono);

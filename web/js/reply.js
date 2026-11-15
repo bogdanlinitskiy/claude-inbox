@@ -3,7 +3,7 @@
 // renderReply redraws the answer panel only when it changed: every update of any session renders, and a redraw
 // would move the caret of the reply being typed. A redraw that keeps the text keeps the caret too.
 function renderReply(s) {
-  const html = actionBarHtml(s) + replyHtml(s);
+  const html = replyHtml(s);
   const key = `${s.id}\n${html}`;
   if (key === replyKey) return;
   replyKey = key;
@@ -24,14 +24,23 @@ function renderReply(s) {
   }
 }
 
+// composer is the one object at the foot of the panel: what you type, the actions that type for you, and the
+// controls that send it. They belong together because they all put text into the same session. A state with
+// nothing to type in gets the actions alone, in the same place, without the box that would promise a field.
+function composer(s, field = '', controls = '') {
+  const bar = actionBarHtml(s);
+  if (!bar && !field) return '';
+  const send = controls ? `<div class="composer-send">${controls}</div>` : '';
+  return `<div class="composer${field ? '' : ' bare'}">${field}<div class="composer-foot">${bar}${send}</div></div>`;
+}
+
 // A free-text answer to a question goes into a one-line field on Claude's screen, so it cannot take line breaks.
-function sendForm(placeholder, withInterrupt, multiline = true) {
-  return `<form class="send" id="send-form" autocomplete="off">
-    <label class="sr" for="reply-input">Reply to this session</label>
-    <textarea id="reply-input" rows="1" ${multiline ? '' : 'data-single-line'} placeholder="${esc(placeholder)}"></textarea>
-    <button class="btn primary" type="submit">Send</button>
-    ${withInterrupt ? '<button class="btn" type="button" data-act="interrupt">Interrupt</button>' : ''}
-  </form>`;
+// Interrupt comes before Send in the markup as it does on screen, so reading order and tab order agree.
+function sendForm(s, placeholder, withInterrupt, multiline = true) {
+  const field = `<label class="sr" for="reply-input">Reply to this session</label>
+    <textarea id="reply-input" rows="1" ${multiline ? '' : 'data-single-line'} placeholder="${esc(placeholder)}"></textarea>`;
+  const controls = `${withInterrupt ? '<button class="btn" type="button" data-act="interrupt">Interrupt</button>' : ''}<button class="btn primary" type="submit">Send</button>`;
+  return `<form class="send" id="send-form" autocomplete="off">${composer(s, field, controls)}</form>`;
 }
 
 function deliveryHtml(s) {
@@ -93,47 +102,47 @@ function viewOnlyHtml(s) {
 
 function replyHtml(s) {
   askOf = s;
-  if (!s.inTmux) return viewOnlyHtml(s);
+  if (!s.inTmux) return viewOnlyHtml(s) + composer(s);
   const st = s.state;
   const delivery = deliveryHtml(s);
   switch (st.kind) {
     case 'question': {
       const q = st.questions[0];
       if (!st.canAnswer) {
-        return ask('k-unknown', 'Answer in the terminal', `<p class="ask-text">This question has several parts or allows several answers. Answer it in the Terminal tab.</p>`) + delivery;
+        return ask('k-unknown', 'Answer in the terminal', `<p class="ask-text">This question has several parts or allows several answers. Answer it in the Terminal tab.</p>`) + delivery + composer(s);
       }
       if (st.fromScreen) {
         return ask('k-question', 'Claude Code is asking · read from the screen', `<p class="ask-text">${esc(q.question)}</p>${optionButtons(s, q.options)}
-          <p class="ask-note">No hook reported this; the app read it from the terminal. Pick an entry, or answer in the Terminal tab.</p>`) + delivery;
+          <p class="ask-note">No hook reported this; the app read it from the terminal. Pick an entry, or answer in the Terminal tab.</p>`) + delivery + composer(s);
       }
       return ask('k-question', q.header ? `Claude is asking · ${q.header}` : 'Claude is asking', `<p class="ask-text">${esc(q.question)}</p>${optionButtons(s, q.options)}`)
-        + delivery + sendForm('Or type your own answer…', false, false);
+        + delivery + sendForm(s, 'Or type your own answer…', false, false);
     }
     case 'permission': {
       const p = st.permission || {};
       return ask('k-permission', `Permission needed · ${p.tool || ''}`,
         `${p.description ? `<p class="ask-text">${esc(p.description)}</p>` : ''}<pre class="cmd">${esc(p.detail)}</pre>
          <div class="opts"><button type="button" class="opt" data-allow="true"${off(s)}>Allow</button><button type="button" class="opt" data-allow="false"${off(s)}>Deny</button></div>`)
-        + delivery + sendForm('Or deny and tell it what to do instead…', false);
+        + delivery + sendForm(s, 'Or deny and tell it what to do instead…', false);
     }
     case 'trust':
       return ask('k-trust', 'Trust this folder?',
         `<p class="ask-text">Claude Code has not worked in ${esc(s.dir)} before and asks whether to trust it. It can read, edit and run files there.</p>
-         <div class="opts"><button type="button" class="opt" data-trust="true"${off(s)}>Trust this folder</button><button type="button" class="opt" data-trust="false"${off(s)}>Don't trust (Claude exits)</button></div>`) + delivery;
+         <div class="opts"><button type="button" class="opt" data-trust="true"${off(s)}>Trust this folder</button><button type="button" class="opt" data-trust="false"${off(s)}>Don't trust (Claude exits)</button></div>`) + delivery + composer(s);
     case 'unknown':
-      return ask('k-unknown', 'Check the terminal', '<p class="ask-text">The session waits on something the app does not recognize. Answer it in the Terminal tab.</p>');
+      return ask('k-unknown', 'Check the terminal', '<p class="ask-text">The session waits on something the app does not recognize. Answer it in the Terminal tab.</p>') + composer(s);
     case 'working':
       if (st.stalled) {
         return ask('k-unknown', 'No activity', `<p class="ask-text">${esc(STALLED_TEXT)}</p>`)
-          + delivery + sendForm('Message this session. It reads it after the current step.', true);
+          + delivery + sendForm(s, 'Message this session. It reads it after the current step.', true);
       }
-      return delivery + sendForm('Message this session. It reads it after the current step.', true);
+      return delivery + sendForm(s, 'Message this session. It reads it after the current step.', true);
     case 'done':
-      return delivery + sendForm('Ask for something else…', false);
+      return delivery + sendForm(s, 'Ask for something else…', false);
     case 'idle':
-      return delivery + sendForm('Type a prompt…', false);
+      return delivery + sendForm(s, 'Type a prompt…', false);
     default:
-      return '';
+      return composer(s);
   }
 }
 

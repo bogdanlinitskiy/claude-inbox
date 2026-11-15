@@ -2,7 +2,11 @@
 
 const actionsOf = list => (list === PRIMARY ? pageConfig.primaryActions : pageConfig.secondaryActions);
 const actionKey = (s, list, i) => `${s.id}:${list}:${i}`;
-const glyph = a => `<span class="glyph">${a.kind === 'run' ? '$' : '↵'}</span>`;
+// Every action carries the sigil of the place it acts: > is Claude's own prompt, $ is the shell in the session's
+// folder. Together they are what makes the row read as commands rather than tabs or tags, and apart they answer
+// the one thing you need before pressing: where does this go. Both are ASCII, so both are in the embedded font
+// subsets; a prettier chevron is not, and would be a box on a machine with nothing to fall back to.
+const glyph = a => (a.kind === 'run' ? '<span class="glyph sh">$</span>' : '<span class="glyph">&gt;</span>');
 
 // actionBlocked says why an action cannot act on this session now; empty when it can. The server checks again.
 function actionBlocked(s, a) {
@@ -22,9 +26,11 @@ function actionBarHtml(s) {
     const why = actionBlocked(s, a);
     const running = runningActions.has(key);
     const label = running ? `${a.label}…` : armedAction === key ? `Click again: ${a.label}` : a.label;
-    return `<button type="button" class="chip${a.kind === 'run' ? ' run' : ''}${armedAction === key ? ' armed' : ''}" data-action="${i}" title="${esc(why || a.text)}"${why || running ? ' disabled' : ''}>${glyph(a)}${esc(label)}</button>`;
+    return `<button type="button" class="chip${armedAction === key ? ' armed' : ''}" data-action="${i}" title="${esc(why || a.text)}"${why || running ? ' disabled' : ''}>${glyph(a)}${esc(label)}</button>`;
   }).join('');
-  return `<div class="act-bar" id="act-bar"><span class="lbl">Actions</span>${chips}<button type="button" class="chip more" data-act="more-actions" hidden></button></div>`;
+  // The bar sits along the bottom of the composer, so its place says what it is; only a screen reader, which
+  // has no place to read, needs the name.
+  return `<div class="act-bar" id="act-bar" role="group" aria-label="Actions">${chips}<button type="button" class="chip more" data-act="more-actions" hidden></button></div>`;
 }
 
 // fitBar keeps the bar to two rows: the chips that would start a third go behind "+N more", which opens the
