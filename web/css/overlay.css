@@ -31,7 +31,9 @@
   /* A real <dialog>: the browser owns the backdrop, the focus trap, Esc, and the inertness of the page. */
 
   .modal {
-    margin: auto; padding: 0; width: min(460px, calc(100% - 32px));
+    /* Top pinned and the scrollbar's room kept, so switching Single and Multi moves nothing but the bottom edge. */
+    margin: 5vh auto auto; max-height: 90vh; scrollbar-gutter: stable;
+    padding: 0; width: min(460px, calc(100% - 32px));
     border: 0; border-radius: var(--r-panel);
     background: var(--surface-1); color: var(--fg);
     box-shadow: var(--pop-shadow), inset 0 0 0 1px var(--line-2);
