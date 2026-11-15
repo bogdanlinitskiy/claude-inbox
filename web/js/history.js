@@ -88,7 +88,7 @@ function renderPastDetail(c) {
   $('#detail').classList.remove('empty');
   const branch = c.branch && c.branch !== 'HEAD' ? `<span class="mono">${esc(c.branch)}</span>` : '';
   $('#d-head').innerHTML = `
-    <button type="button" class="btn small back" data-act="back">← All sessions</button>
+    <button type="button" class="btn small back" data-act="back">‹ All sessions</button>
     <div class="d-title"><span class="tid${c.ticket ? ' ticket' : ''}">${esc(c.ticket || 'No ticket')}</span><h2>${esc(c.title || short(c.repo))}</h2></div>
     <div class="d-tools"><button type="button" class="btn small" data-act="resume-conversation">Resume</button></div>
     <div class="d-meta">

@@ -43,7 +43,7 @@ function paintGroup(s) {
   }).join('');
   const msgs = groupMessages.get(s.group) || [];
   const log = msgs.length
-    ? msgs.map(m => `<div class="g-msg"><span class="g-route">${esc(m.from)} → ${esc(m.to)}<time>${esc(clock(m.sentAt))}</time></span><span class="g-text">${esc(m.text)}</span></div>`).join('')
+    ? msgs.map(m => `<div class="g-msg"><span class="g-route">${esc(m.from)} -> ${esc(m.to)}<time>${esc(clock(m.sentAt))}</time></span><span class="g-text">${esc(m.text)}</span></div>`).join('')
     : '<p class="empty-pane">No messages yet. They show here as the sessions send them.</p>';
   const armed = closeGroupArmed === s.group;
   $('#pane').innerHTML = `<div class="g-view">

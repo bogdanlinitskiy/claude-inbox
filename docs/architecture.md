@@ -307,8 +307,9 @@ the browser Notification API: on a `live` change into Question or Permission, th
 session id), and clicking it focuses the window and selects that session. The Alerts toggle is kept in
 `localStorage`. A `#session=<id>` link selects that session.
 
-Actions: the primary chips render above the reply box (at most 60 drawn) and `fitBar` keeps the ones of the first
-two rows, measured from the bar's own top, behind a "+N more" chip. The menu (`#act-menu`, fixed, outside the
+Actions: the primary chips render inside the composer, along the bottom of the reply box and beside its Send and
+Interrupt buttons (at most 60 drawn); `fitBar` keeps the ones of the first two rows, measured from the bar's own
+top, behind a "+N more" chip. A state with nothing to type into shows the same row on its own (`.composer.bare`). The menu (`#act-menu`, fixed, outside the
 detail so redraws leave it alone) draws its search box once and redraws only its rows, at most 200, so typing keeps
 the caret. An action greys out with the reason when the session cannot take it (a `send` while a question waits, a
 `run` while Claude works); the server checks again. A `confirm` action arms on the first click, like Close.

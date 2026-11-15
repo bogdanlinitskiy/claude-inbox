@@ -43,7 +43,8 @@ for (const type of ['pointerdown', 'keydown']) {
 function renderSound() {
   const b = $('#sound');
   b.setAttribute('aria-pressed', String(soundOn));
-  b.textContent = soundOn ? 'Sound on' : 'Sound off';
+  b.textContent = 'Sound';
+  b.title = soundOn ? 'Sound is on: a short sound when a session starts waiting' : 'Sound is off';
 }
 
 $('#sound').addEventListener('click', () => {
@@ -57,7 +58,8 @@ $('#sound').addEventListener('click', () => {
 function renderAlerts() {
   const b = $('#alerts');
   b.setAttribute('aria-pressed', String(alertsOn));
-  b.textContent = alertsOn ? 'Alerts on' : 'Alerts off';
+  b.textContent = 'Alerts';
+  b.title = alertsOn ? 'Alerts are on: a desktop notification when a session starts waiting' : 'Alerts are off';
 }
 
 $('#alerts').addEventListener('click', async () => {

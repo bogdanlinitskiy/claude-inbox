@@ -1,26 +1,50 @@
 @layer actions {
-  /* Primary actions as chips over the reply box, all of them in the searchable menu.
-     ↵ marks an action that types into the session, $ one that runs a command. */
+  /* The actions run along the bottom of the composer, because they do what the box above them does: put text
+     into this session. Their place says that much, so nothing has to announce them and the group name is left
+     for a screen reader.
+
+     Each one still has to say "press me" on its own, though: a bare word in a row of bare words reads as a
+     caption, and nobody hovers a caption to find out. So every action sits on its own key — a fill one step
+     above the composer, no outline. The fill is what makes it a button; the missing outline is what keeps five
+     of them from fighting the box they are in, and keeps them all quieter than Send.
+
+     A key still only says "press me", not "this runs something", so each one leads with the sigil of the place
+     it acts. That is what tells you the row is commands and not tabs. */
   .act-bar {
-    display: flex; flex-wrap: wrap; align-items: center; gap: 6px;
-    & .lbl { font: 500 var(--t-xs) var(--font-mono); color: var(--faint); margin-right: var(--s1); }
+    flex: 1; min-width: 0;
+    display: flex; flex-wrap: wrap; align-items: center; gap: 5px;
   }
   .glyph { font: 600 10px var(--font-mono); color: var(--faint); }
 
-  .chip {
+  .act-bar .chip {
     display: inline-flex; align-items: center; gap: 6px;
-    height: 26px; padding: 0 10px;
-    border: 1px solid var(--line); border-radius: var(--r-pill);
-    background: var(--surface-2); color: var(--muted);
-    font: 600 var(--t-sm) var(--font-ui); white-space: nowrap;
+    height: 27px; padding: 0 9px;
+    border: 0; border-radius: var(--r-control);
+    background: var(--surface-3); color: var(--fg);
+    font: 550 var(--t-sm) var(--font-ui); white-space: nowrap;
+    transition: background-color 120ms ease, color 120ms ease;
 
-    &:hover:not(:disabled) { color: var(--fg); border-color: var(--line-2); background: var(--surface-3); }
-    &.run { border-style: dashed; }
-    &.armed { background: color-mix(in oklab, var(--fail) 14%, transparent); border-color: var(--fail); color: var(--fail); }
+    /* The sigil names where the action lands: > is Claude's prompt, $ is the shell. The shell one is tinted,
+       because running a command on this machine is the one that deserves a second look. */
+    & .glyph { color: var(--faint); }
+    & .glyph.sh { color: var(--info); }
+
+    /* Mixed towards the text colour, so the press reads in both themes without a second named surface. */
+    &:hover:not(:disabled) { background: color-mix(in oklab, var(--fg) 14%, var(--surface-3)); }
+
+    /* A confirm action waiting for its second click is the one chip that is different in kind, not in degree. */
+    &.armed {
+      color: var(--fail); background: color-mix(in oklab, var(--fail) 15%, transparent);
+      box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--fail) 38%, transparent);
+      & .glyph { color: inherit; }
+    }
+
+    /* The overflow count is structure, not an action: mono, like every other count in the app. It gives up the
+       accent to Send, the one control in this panel that should be loud. */
     &.more {
-      color: var(--accent);
-      border-color: color-mix(in oklab, var(--accent) 45%, transparent);
-      background: color-mix(in oklab, var(--accent) 10%, transparent);
+      font: 550 var(--t-xs) var(--font-mono); font-variant-numeric: tabular-nums;
+      color: var(--muted);
+      &:hover:not(:disabled) { color: var(--fg); }
     }
   }
 

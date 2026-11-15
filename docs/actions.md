@@ -7,8 +7,9 @@ runs a shell command in its folder and shows you the output.
 
 They live in `~/.config/claude-inbox/config.json`, in two lists:
 
-- `primary_actions` become chips over the reply box, two rows at most; the rest sit behind a "+N more" chip that
-  opens them in a searchable list.
+- `primary_actions` become the row of actions along the bottom of the reply box, two rows at most; the rest sit
+  behind a "+N more" chip that opens them in a searchable list. Each one leads with where it acts: `>` types at
+  Claude's prompt, `$` runs a shell command in the session's folder.
 - `secondary_actions` fill the Actions menu in the session header (or press <kbd>.</kbd>), which opens with its
   search box focused.
 

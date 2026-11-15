@@ -99,6 +99,28 @@
   .keys-btn { width: 32px; padding: 0; }
   .theme-btn { min-width: 58px; }
 
+  /* The ambient settings as one control. Inside it a button gives up its own box - the cluster draws the
+     border once - so the top bar reads as a settings group and a primary action, not six equal rectangles.
+     An off toggle stays quiet; an on one lifts to the pressed surface, which is what carries on/off now that
+     the labels no longer spell it. */
+  .cluster {
+    display: flex; align-items: center;
+    border: 1px solid var(--line-2); border-radius: var(--r-control);
+    background: var(--surface-2); box-shadow: var(--lift-1); overflow: clip;
+
+    & .btn {
+      border: 0; border-radius: 0; background: none; box-shadow: none;
+      height: 30px; color: var(--muted); font-size: var(--t-sm);
+      &:where(:hover) { background: var(--surface-3); color: var(--fg); }
+      &[aria-pressed="true"] { background: var(--surface-3); color: var(--fg); }
+      &[aria-pressed="false"] { background: none; color: var(--muted); }
+      &[aria-pressed="false"]:hover { background: var(--surface-3); color: var(--fg); }
+    }
+    & .btn + .btn { border-left: 1px solid var(--line); }
+    & .keys-btn { width: 30px; }
+    & .theme-btn { min-width: 52px; }
+  }
+
   .keys {
     margin: 0; inset: 56px 16px auto auto;
     padding: var(--s3); border: 1px solid var(--line-2); border-radius: var(--r-panel);
@@ -145,7 +167,16 @@
       animation: spin 0.9s linear infinite;
     }
   }
-  .s-done { --tone: var(--done); &::before { content: "✓"; width: auto; height: auto; background: none; font-size: 10px; line-height: 1; } }
+  /* Drawn, not typed: a ✓ is outside every subset the app embeds, so it would come from whatever the
+     machine happens to have. Two borders on a rotated box need no glyph at all. */
+  .s-done {
+    --tone: var(--done);
+    &::before {
+      content: ""; width: 4px; height: 7.5px; background: none; border-radius: 0;
+      border: solid currentColor; border-width: 0 1.6px 1.6px 0;
+      rotate: 45deg; translate: 0 -1px;
+    }
+  }
   .s-idle, .s-ended { background: var(--surface-2); color: var(--muted); box-shadow: inset 0 0 0 1px var(--line); }
   .s-ended { opacity: 0.75; }
 
