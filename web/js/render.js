@@ -264,12 +264,12 @@ function headHtml(s) {
   const sinceLabel = SINCE_LABEL[s.state.kind] || 'waiting';
   const closeLabel = s.discovered ? 'Hide' : closeArmed === s.id ? 'Click again to close' : 'Close session';
   return `
-    <button type="button" class="btn small back" data-act="back">← All sessions</button>
+    <button type="button" class="btn small back" data-act="back">‹ All sessions</button>
     <div class="d-title">
       <span class="tid${s.ticket ? ' ticket' : ''}">${esc(s.ticket || 'No ticket')}</span>${titleHtml(s)}
       <span class="state ${k.cls}">${k.label}</span>
       <div class="d-tools">
-        ${pageConfig.secondaryActions.length ? '<button type="button" class="btn small" data-act="actions" aria-haspopup="listbox" title="Actions (.)">Actions ▾</button><span class="act-sep"></span>' : ''}
+        ${pageConfig.secondaryActions.length ? '<button type="button" class="btn small" data-act="actions" aria-haspopup="listbox" title="Actions (.)">Actions <span class="caret"></span></button><span class="act-sep"></span>' : ''}
         <button type="button" class="btn small" data-act="rename">Rename</button>
         ${pageConfig.ide ? '<button type="button" class="btn small" data-act="ide">Open in IDE</button>' : ''}
         <button type="button" class="btn small${s.discovered ? '' : ' danger'}${closeArmed === s.id ? ' armed' : ''}" data-act="close">${closeLabel}</button>

@@ -121,6 +121,7 @@
   .file {
     display: flex; align-items: center; gap: 10px; padding: var(--s2) var(--s3);
     font: 500 12.5px/1.45 var(--font-mono); font-variant-numeric: tabular-nums;
+    font-variant-ligatures: none;   /* a path is literal too; after the shorthand, which resets it */
 
     & .path { flex: 1; min-width: 0; overflow-wrap: anywhere; }
     & .tag { font-family: var(--font-ui); font-size: var(--t-xs); color: var(--faint); }
@@ -128,7 +129,7 @@
   summary.file {
     cursor: pointer; list-style: none;
     &::-webkit-details-marker { display: none; }
-    &::before { content: "›"; color: var(--faint); font-size: 14px; line-height: 1; transition: rotate 160ms ease; }
+    &::before { content: "\203A"; color: var(--faint); font-size: 14px; line-height: 1; transition: rotate 160ms ease; }
     &:hover { background: var(--surface-2); }
   }
   .file-diff[open] > summary.file::before { rotate: 90deg; }
@@ -157,7 +158,12 @@
     border: 1px solid var(--line); border-radius: var(--r-panel);
     background: var(--term-bg); color: var(--term-fg); overflow-x: auto;
 
-    & pre { margin: 0; padding: var(--s2) 0; min-width: max-content; font: 500 12px/1.65 var(--font-mono); }
+    /* No ligatures in a patch: JetBrains Mono draws != as a single ≠ and -> as an arrow, and a diff is read
+       character by character. It must show what the file says. Declared after the shorthand, which resets it. */
+    & pre {
+      margin: 0; padding: var(--s2) 0; min-width: max-content; font: 500 12px/1.65 var(--font-mono);
+      font-variant-ligatures: none;
+    }
     & .h { display: block; padding: 0 var(--s3); white-space: pre; }
     & .h.a { background: color-mix(in oklab, var(--done) 18%, transparent); }
     & .h.d { background: color-mix(in oklab, var(--fail) 18%, transparent); }
@@ -171,7 +177,7 @@
 
   .g-view {
     display: grid; gap: var(--s5); align-content: start; padding: var(--s4) 16px;
-    & h4 { margin: 0 0 var(--s2); font: 600 var(--t-xs) var(--font-mono); letter-spacing: 0.06em; text-transform: uppercase; color: var(--faint); }
+    & h4 { margin: 0 0 var(--s2); font: 600 var(--t-sm) var(--font-ui); color: var(--muted); }
     & .empty-pane { padding: 0; font-size: var(--t-sm); }
   }
   .g-bar {

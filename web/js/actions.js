@@ -123,7 +123,7 @@ function openMenu(list, anchor, only) {
   menu = { list, sessionId: s.id, query: '', sel: 0, inputIndex: only ?? null, inputValue: '', only, anchorSel };
   const box = $('#act-menu');
   const search = only === undefined
-    ? `<div class="search"><span class="glyph">⌕</span><input id="act-search" type="search" placeholder="Search actions…" aria-label="Search actions" autocomplete="off"><span class="cnt" id="act-count"></span></div>`
+    ? `<div class="search"><input id="act-search" type="search" placeholder="Search actions…" aria-label="Search actions" autocomplete="off"><span class="cnt" id="act-count"></span></div>`
     : '';
   box.innerHTML = `${list === PRIMARY ? '<div class="head">Primary actions</div>' : ''}${search}<div class="items" id="act-items" role="listbox" aria-label="Actions"></div><div class="foot" id="act-foot"></div>`;
   box.hidden = false;
