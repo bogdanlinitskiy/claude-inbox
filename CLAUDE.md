@@ -42,3 +42,10 @@ make install           # build and install to ~/.local/bin; running sessions and
 ```
 
 Never `make run` (opens a browser) or `make test-e2e` (a real claude, costs tokens, takes minutes) unless asked.
+
+A change to the binary or `web/` is finished only after a reload: run it without being asked, so the user sees the
+change in the browser. The inbox runs in home's tmux session `home-inbox`:
+
+```bash
+make install && tmux respawn-pane -k -t '=home-inbox:'
+```
