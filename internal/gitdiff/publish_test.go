@@ -71,6 +71,21 @@ func TestCommitTakesOnlyTheGivenPaths(t *testing.T) {
 	assert.Equal(t, "?? left-out.txt", gitOut(t, dir, "status", "--porcelain"), "the other change stays uncommitted")
 }
 
+func TestCommitFromASubfolder(t *testing.T) {
+	commitIdentity(t)
+	dir := newRepo(t, "master")
+	write(t, dir, "src/new.go", "package src\n")
+	write(t, dir, "README.md", "changed\n")
+	sub := filepath.Join(dir, "src")
+	d, err := Compute(context.Background(), sub)
+	require.NoError(t, err)
+
+	_, err = Commit(context.Background(), sub, "from below", d.Uncommitted)
+
+	require.NoError(t, err)
+	assert.ElementsMatch(t, []string{"README.md", "src/new.go"}, strings.Fields(gitOut(t, dir, "show", "--name-only", "--format=", "HEAD")))
+}
+
 func TestCommitTakesPathsLiterally(t *testing.T) {
 	commitIdentity(t)
 	dir := newRepo(t, "master")

@@ -170,6 +170,8 @@ func parseNumstat(out string) ([]File, error) {
 
 // uncommittedPaths reads `git status --porcelain -z` without renames: "XY path<NUL>" per changed path. Never nil,
 // so a clean tree encodes as [].
+// shortcut: no cap, unlike untracked files; thousands of untracked files would push the commit request past
+// maxBodyBytes. Cap it, and say so in the dialog, when a session makes such a tree.
 func uncommittedPaths(ctx context.Context, dir string) ([]string, error) {
 	out, err := git(ctx, dir, "status", "--porcelain", "-z", "--no-renames", "--untracked-files=all")
 	if err != nil {

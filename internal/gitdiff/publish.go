@@ -7,9 +7,15 @@ import (
 	"os"
 	"os/exec"
 	"strings"
+	"syscall"
+	"time"
 )
 
-const remote = "origin"
+const (
+	remote = "origin"
+	// waitDelay is how long output waits for the pipe after the process group was killed.
+	waitDelay = 5 * time.Second
+)
 
 var (
 	ErrDetached      = errors.New("HEAD is detached: check out a branch first")
@@ -19,10 +25,16 @@ var (
 // Commit commits exactly paths, as they are in the working tree: changed, deleted or untracked. Other changes,
 // staged or not, stay out of the commit. It answers what git printed.
 func Commit(ctx context.Context, dir, message string, paths []string) (string, error) {
-	if _, err := output(ctx, dir, "git", append([]string{"add", "--all", "--"}, paths...)...); err != nil {
+	// git status names paths from the top of the repository; the session's folder may be below it.
+	top, err := git(ctx, dir, "rev-parse", "--show-toplevel")
+	if err != nil {
 		return "", err
 	}
-	return output(ctx, dir, "git", append([]string{"commit", "--message", message, "--"}, paths...)...)
+	top = strings.TrimSpace(top)
+	if _, err := output(ctx, top, "git", append([]string{"add", "--all", "--"}, paths...)...); err != nil {
+		return "", err
+	}
+	return output(ctx, top, "git", append([]string{"commit", "--message", message, "--"}, paths...)...)
 }
 
 // Push pushes the current branch to the branch of the same name on origin and tracks it. Never forced.
@@ -43,9 +55,13 @@ func OpenPR(ctx context.Context, dir string) (string, error) {
 	if _, err := Push(ctx, dir); err != nil {
 		return "", err
 	}
-	// gh exits 1 when the branch has no pull request yet.
-	if url, err := output(ctx, dir, "gh", "pr", "view", branch, "--json", "url", "--jq", ".url"); err == nil {
-		return strings.TrimSpace(url), nil
+	// Only an open one: a branch whose pull request was merged or closed gets a new one.
+	open, err := output(ctx, dir, "gh", "pr", "list", "--head", branch, "--state", "open", "--json", "url", "--jq", ".[0].url // empty")
+	if err != nil {
+		return "", err
+	}
+	if url := strings.TrimSpace(open); url != "" {
+		return url, nil
 	}
 	// --head: gh neither pushes nor asks where to; the branch is pushed above.
 	out, err := output(ctx, dir, "gh", "pr", "create", "--draft", "--fill", "--head", branch)
@@ -82,6 +98,11 @@ func output(ctx context.Context, dir, name string, args ...string) (string, erro
 	cmd := exec.CommandContext(ctx, name, args...)
 	cmd.Dir = dir
 	cmd.Env = append(os.Environ(), "GIT_TERMINAL_PROMPT=0", "GIT_LITERAL_PATHSPECS=1", "GH_PROMPT_DISABLED=1", "LC_ALL=C")
+	// Its own process group, so a cancel also reaches what git started (ssh, a pre-commit hook), which would
+	// otherwise hold the output pipe open past the deadline.
+	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
+	cmd.Cancel = func() error { return syscall.Kill(-cmd.Process.Pid, syscall.SIGKILL) }
+	cmd.WaitDelay = waitDelay
 	out, err := cmd.CombinedOutput()
 	if err != nil {
 		return "", fmt.Errorf("%s %s: %w: %s", name, args[0], err, strings.TrimSpace(string(out)))
