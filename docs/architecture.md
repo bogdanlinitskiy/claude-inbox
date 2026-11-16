@@ -160,7 +160,7 @@ Errors are `{message, code}`.
 | `GET /` | The page. |
 | `GET /api/sessions` | All sessions with their state. |
 | `POST /api/sessions` | Start a session: `{dir, ticket, title, prompt, worktree, branch}`. |
-| `POST /api/groups` | Start a group: `{dirs, ticket, tickets, title, prompt, worktree, branch, coordinator, shareDirs}`; answers the started sessions. |
+| `POST /api/groups` | Start a group: `{dirs, ticket, tickets, title, prompt, workerPrompt, worktree, branch, coordinator, shareDirs}`; answers the started sessions. |
 | `GET /api/group/{id}/messages` | The messages the group's sessions sent each other, oldest first. |
 | `GET /api/session/{id}` | One session. |
 | `PATCH /api/session/{id}` | Rename: `{title}`; an empty title shows the folder name again. |
@@ -220,7 +220,8 @@ Several tickets take no worktree, since they would all share one branch.
 4. Each session runs `claude … [--add-dir <the other members' folders>] --append-system-prompt <the group> [<prompt>]`.
    The system prompt lists the members (name, role, repository, folder), says how to message one, and gives the
    session its part. `--add-dir` takes several values, so the system prompt sits between it and the prompt. With
-   a coordinator only the coordinator gets the prompt; without one every session does.
+   a coordinator only the coordinator gets the prompt; without one every session does. With `workerPrompt`, every
+   worker gets it instead, `{ticket}` replaced by its ticket, and the system prompts say the workers have their part.
 5. A session that fails to start leaves the others running; the request answers with the error.
 
 `claude-inbox send <name> <text>` reads the sender's id from `INBOX_SESSION` and the app's link and token from

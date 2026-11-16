@@ -106,9 +106,11 @@ func TestStartGroupWithoutCoordinator(t *testing.T) {
 func TestStartGroupWithTicketsInOneFolder(t *testing.T) {
 	f := newFixture(t)
 	first, second, coordinatorTicket := "PROJ-1", "PROJ-2", "PROJ-9"
+	prompt, workerCommand := "Collect the reports.", "/split-prep "
 
 	infos, err := f.m.StartGroup(context.Background(), StartGroupRequest{
 		Dirs: []string{f.repo}, Ticket: coordinatorTicket, Tickets: []string{" " + first, second, first, ""}, Coordinator: true,
+		Prompt: prompt, WorkerPrompt: workerCommand + TicketPlaceholder,
 	})
 
 	require.NoError(t, err)
@@ -122,7 +124,13 @@ func TestStartGroupWithTicketsInOneFolder(t *testing.T) {
 		assert.Equal(t, RoleWorker, worker.Role)
 		assert.Equal(t, f.repo, worker.Dir)
 		assert.Equal(t, ticket, worker.Ticket)
+		cmd := f.tmux.started[i+1].Command
+		assert.Equal(t, workerCommand+ticket, cmd[len(cmd)-1], "each worker starts on its own ticket")
+		assert.Contains(t, cmd[len(cmd)-2], "Your first message is your part")
 	}
+	coordCmd := f.tmux.started[0].Command
+	assert.Equal(t, prompt, coordCmd[len(coordCmd)-1])
+	assert.Contains(t, coordCmd[len(coordCmd)-2], "do not send it again")
 	assert.NotEqual(t, firstInfo.TmuxName, secondInfo.TmuxName)
 	assert.Contains(t, firstInfo.TmuxName, first)
 	assert.Contains(t, secondInfo.TmuxName, second)
