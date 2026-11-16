@@ -46,6 +46,7 @@ type Sessions interface {
 	ResumeConversation(ctx context.Context, claudeSessionID string) (session.Info, error)
 	Preview(claudeSessionID string) (transcript.Preview, error)
 	Rename(id, title string) (session.Info, error)
+	Pin(id string, pinned bool) (session.Info, error)
 	Repos() ([]session.Repo, error)
 	Subscribe() (<-chan session.Change, func())
 	Attach(id string) ([]string, error)
@@ -58,6 +59,10 @@ type Config struct {
 	Diff     func(ctx context.Context, dir string) (gitdiff.Diff, error)
 	// OpenIDE opens a folder in the IDE; nil when no IDE is set, which hides the page's button.
 	OpenIDE func(ctx context.Context, dir string) error
+	// Commit, Push and OpenPR are the Diff tab's buttons; OpenPR is nil without gh, which hides its button.
+	Commit func(ctx context.Context, dir, message string, paths []string) (string, error)
+	Push   func(ctx context.Context, dir string) (string, error)
+	OpenPR func(ctx context.Context, dir string) (string, error)
 	// Web holds the page; index.html is served at /.
 	Web fs.FS
 	// CheatSheet is the URL /cheatsheet redirects to. Empty turns the route and the page's button off.
@@ -92,12 +97,17 @@ func New(cfg Config) *Server {
 	api.HandleFunc("GET /api/session/{id}", s.getSession)
 	api.HandleFunc("PATCH /api/session/{id}", s.renameSession)
 	api.HandleFunc("DELETE /api/session/{id}", s.closeSession)
+	api.HandleFunc("PUT /api/session/{id}/pin", s.pin)
+	api.HandleFunc("DELETE /api/session/{id}/pin", s.pin)
 	api.HandleFunc("POST /api/session/{id}/answer", s.answer)
 	api.HandleFunc("POST /api/session/{id}/message", s.message)
 	api.HandleFunc("POST /api/session/{id}/send", s.send)
 	api.HandleFunc("POST /api/session/{id}/interrupt", s.interrupt)
 	api.HandleFunc("POST /api/session/{id}/action", s.runAction)
 	api.HandleFunc("GET /api/session/{id}/diff", s.diff)
+	api.HandleFunc("POST /api/session/{id}/commit", s.commit)
+	api.HandleFunc("POST /api/session/{id}/push", s.push)
+	api.HandleFunc("POST /api/session/{id}/pr", s.openPR)
 	api.HandleFunc("POST /api/session/{id}/open-ide", s.openIDE)
 	api.HandleFunc("GET /api/session/{id}/terminal", s.terminal)
 	api.HandleFunc("GET /api/conversations", s.conversations)
@@ -143,6 +153,7 @@ func (s *Server) page(w http.ResponseWriter, r *http.Request) {
 // names, and the configured actions.
 type pageConfig struct {
 	IDE              bool         `json:"ide"`
+	PR               bool         `json:"pr"`
 	CheatSheet       bool         `json:"cheatSheet"`
 	StripPrefix      string       `json:"stripPrefix"`
 	EmbedOrigin      string       `json:"embedOrigin"`
@@ -152,7 +163,7 @@ type pageConfig struct {
 
 func (s *Server) pageConfig(w http.ResponseWriter, _ *http.Request) {
 	writeJSON(w, http.StatusOK, pageConfig{
-		IDE: s.cfg.OpenIDE != nil, CheatSheet: s.cfg.CheatSheet != "", StripPrefix: s.cfg.StripPrefix, EmbedOrigin: s.cfg.EmbedOrigin,
+		IDE: s.cfg.OpenIDE != nil, PR: s.cfg.OpenPR != nil, CheatSheet: s.cfg.CheatSheet != "", StripPrefix: s.cfg.StripPrefix, EmbedOrigin: s.cfg.EmbedOrigin,
 		PrimaryActions: pageActions(s.cfg.PrimaryActions), SecondaryActions: pageActions(s.cfg.SecondaryActions),
 	})
 }

@@ -123,6 +123,19 @@
   </form>
 </dialog>
 
+<dialog class="modal" id="commit-dialog" aria-labelledby="commit-title">
+  <form class="modal-body" id="commit-form" autocomplete="off">
+    <h3 id="commit-title">Commit</h3>
+    <div class="field"><label for="commit-message">Message</label><textarea id="commit-message" rows="2" required></textarea></div>
+    <pre class="hint mono commit-files" id="commit-files"></pre>
+    <p class="form-error" id="commit-error" hidden></p>
+    <div class="modal-actions">
+      <button type="button" class="btn" id="commit-cancel">Cancel</button>
+      <button type="submit" class="btn primary" id="commit-submit">Commit</button>
+    </div>
+  </form>
+</dialog>
+
 <script src="vendor/xterm.js"></script>
 <script src="vendor/addon-fit.js"></script>
 <!-- Plain scripts sharing one global scope, no build step. Each file only declares, except for wiring its own

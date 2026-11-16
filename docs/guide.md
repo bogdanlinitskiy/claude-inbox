@@ -15,6 +15,9 @@ The blocks, always in this order:
 
 - **Needs you** — a session waiting on a question, a permission, a folder it does not trust, or something the app
   does not recognize. The row shows the question, or the command Claude wants to run.
+- **Pinned** — the sessions you pinned with **Pin** in the session header, whatever their state; each row says
+  its state. A pinned session that needs you shows under Needs you until it is answered. **Unpin** puts it back
+  in its state block. A session of a group stays in its group and has no Pin.
 - **Groups** — one block per group of sessions started together (see
   [Several repositories at once](#several-repositories-at-once)).
 - **Working** — Claude is busy. The row shows what it is doing.
@@ -79,14 +82,22 @@ because you answered it in the terminal instead, the row goes back to what it sh
 - **Terminal** — the session's live tmux pane: readable, scrollable and typeable, for anything the app's own
   controls don't cover.
 - **Diff** — `git diff` against the merge base with the repository's default branch, including uncommitted and
-  untracked files.
+  untracked files. Its buttons:
+  - **Commit N files** — asks for a message (it starts with the branch name) and commits exactly the files that are
+    uncommitted, untracked ones included, with `git commit -- <paths>`. Refused while Claude is working.
+  - **Push** — `git push --set-upstream origin HEAD`, never forced.
+  - **Open PR** — pushes, then opens the branch's pull request in a new tab: the open one, or a new draft that `gh`
+    fills from the commits. Shown only when `gh` is installed.
+
+  Push and Open PR are not offered on the default branch or a detached HEAD. A rejected hook or push shows git's
+  own output.
 - **Group** — only for a session of a group: the group's sessions with their state (click one to open it), and
   the messages they sent each other. **Close group** there closes all of them at once (click twice); the worktrees
   and branches stay.
 
 ![The Terminal tab, then the session's change in the Diff tab](media/tabs.gif)
 
-The session header also holds Rename, Open in IDE (with `ide` set) and Close.
+The session header also holds Pin, Rename, Open in IDE (with `ide` set) and Close.
 
 ## Starting a session
 

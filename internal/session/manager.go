@@ -155,6 +155,8 @@ type Info struct {
 	// Group is the id of the group the session was started in, Role its part there; both empty outside one.
 	Group string `json:"group,omitempty"`
 	Role  string `json:"role,omitempty"`
+	// Pinned: the page lists the session in its Pinned block.
+	Pinned bool `json:"pinned,omitempty"`
 }
 
 // Conversation is a past conversation as History shows it.
@@ -575,6 +577,24 @@ func (m *Manager) Rename(id, title string) (Info, error) {
 		return Info{}, err
 	}
 	e.meta.Title = meta.Title
+	m.publish(e, false, true)
+	return e.info(m.cfg.TicketPattern), nil
+}
+
+// Pin pins or unpins the session on the page. Only Pinned is assigned on the entry, as in Rename.
+func (m *Manager) Pin(id string, pinned bool) (Info, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	e, ok := m.entries[id]
+	if !ok {
+		return Info{}, ErrNotFound
+	}
+	meta := e.meta
+	meta.Pinned = pinned
+	if err := m.cfg.Store.SaveMeta(meta); err != nil {
+		return Info{}, err
+	}
+	e.meta.Pinned = pinned
 	m.publish(e, false, true)
 	return e.info(m.cfg.TicketPattern), nil
 }
@@ -1016,7 +1036,7 @@ func (e *entry) info(ticketPattern *regexp.Regexp) Info {
 		ID: e.meta.ID, Ticket: e.meta.Ticket, Title: e.meta.Title, Repo: e.meta.Repo, Dir: e.meta.Dir,
 		TmuxName: e.meta.TmuxName, Branch: e.branch, CreatedAt: state.FormatTime(e.meta.CreatedAt),
 		State: e.state.View(), Delivery: e.delivery, Discovered: e.meta.Discovered, Worktree: e.meta.Worktree, InTmux: e.inTmux,
-		ClaudeSessionID: e.state.ClaudeSessionID, Group: e.meta.Group, Role: e.meta.Role,
+		ClaudeSessionID: e.state.ClaudeSessionID, Group: e.meta.Group, Role: e.meta.Role, Pinned: e.meta.Pinned,
 	}
 	if e.meta.Discovered {
 		info.Ticket = TicketIn(ticketPattern, e.branch)

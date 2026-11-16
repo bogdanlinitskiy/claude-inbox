@@ -83,6 +83,9 @@
 
   .modal-actions { display: flex; justify-content: flex-end; gap: var(--s2); }
 
+  /* The commit dialog's file list: every path on its own line, scrolling past a screenful. */
+  .commit-files { max-height: 30vh; overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere; }
+
   /* ---------- Single / Multi ---------- */
 
   .seg {

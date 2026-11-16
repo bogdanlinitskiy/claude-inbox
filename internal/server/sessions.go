@@ -98,6 +98,16 @@ func (s *Server) renameSession(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, info)
 }
 
+// pin pins the session on PUT and unpins it on DELETE.
+func (s *Server) pin(w http.ResponseWriter, r *http.Request) {
+	info, err := s.cfg.Sessions.Pin(r.PathValue("id"), r.Method == http.MethodPut)
+	if err != nil {
+		s.sessionError(w, r, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, info)
+}
+
 func (s *Server) closeSession(w http.ResponseWriter, r *http.Request) {
 	if err := s.cfg.Sessions.Close(r.Context(), r.PathValue("id")); err != nil {
 		s.sessionError(w, r, err)

@@ -60,7 +60,7 @@ function rowHtml(s) {
   const text = summary(s);
   // The stripe and the block heading already say which state this is, so the pill stays only where the kind
   // is finer than the block - Question, Permission, Idle - and goes where it would repeat the heading.
-  const pill = k.label === BLOCK[group(s)] ? '' : `<span class="state ${k.cls}">${k.label}</span>`;
+  const pill = k.label === BLOCK[block(s)] ? '' : `<span class="state ${k.cls}">${k.label}</span>`;
   const branch = s.branch ? `<span class="row-branch" title="${esc(s.branch)}">${esc(s.branch)}</span>` : '';
   // A span, not a button: a button inside a button is invalid. The rail's click handler reads the attribute,
   // and the keyboard reaches the same thing with t on the selected row.
@@ -157,9 +157,10 @@ function renderList() {
     list.innerHTML = scope + emptyHtml(text);
     return;
   }
-  // One block needs no heading: the pressed filter already names it. The ticket view keeps every heading,
-  // because the split across states is the whole point of that view. A group always has its header.
-  const heads = blocks.length > 1 || !!ticketFilter;
+  // One block needs no heading: the pressed filter already names it, except Pinned, which no filter names. The
+  // ticket view keeps every heading, because the split across states is the whole point of that view. A group
+  // always has its header.
+  const heads = blocks.length > 1 || !!ticketFilter || blocks[0].key === 'pinned';
   list.innerHTML = scope + blocks.map(b => b.group
     ? `<section class="group sgroup" role="group" aria-label="${esc(`Group ${b.group.lead.ticket || ''}`)}">${groupHeadHtml(b.group)}${b.list.map(rowHtml).join('')}</section>`
     : `<section class="group" role="group" aria-label="${esc(b.label)}">
@@ -270,6 +271,7 @@ function headHtml(s) {
       <span class="state ${k.cls}">${k.label}</span>
       <div class="d-tools">
         ${pageConfig.secondaryActions.length ? '<button type="button" class="btn small" data-act="actions" aria-haspopup="listbox" title="Actions (.)">Actions <span class="caret"></span></button><span class="act-sep"></span>' : ''}
+        ${s.group ? '' : `<button type="button" class="btn small" data-act="pin" aria-pressed="${!!s.pinned}" title="${s.pinned ? 'Back to its state block' : 'Keep it in Pinned, under Needs you'}">${s.pinned ? 'Unpin' : 'Pin'}</button>`}
         <button type="button" class="btn small" data-act="rename">Rename</button>
         ${pageConfig.ide ? '<button type="button" class="btn small" data-act="ide">Open in IDE</button>' : ''}
         <button type="button" class="btn small${s.discovered ? '' : ' danger'}${closeArmed === s.id ? ' armed' : ''}" data-act="close">${closeLabel}</button>

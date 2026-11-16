@@ -91,7 +91,7 @@ hook path they were started with.
 | `internal/answer` | Turns an answer into a key sequence; reads menus and their numbers from a captured screen. Everything that depends on how Claude Code words and draws that screen is in `wording.go`, so a release that changes the output has one file to re-read. |
 | `internal/proc` | Finds the `claude` process of a discovered session and tells whether it still runs: `/proc` on Linux, `ps` on macOS. |
 | `internal/transcript` | Reads Claude Code's transcripts (`~/.claude/projects/<folder>/<id>.jsonl`) for History and Preview. |
-| `internal/gitdiff` | Default-branch detection, merge base, `--numstat`, patch, untracked files, worktrees. |
+| `internal/gitdiff` | Default-branch detection, merge base, `--numstat`, patch, untracked files, worktrees; the Diff tab's commit, push and pull request. |
 | `internal/action` | The configured actions: validation, the `{input}` placeholder, and running a `run` action's command (own process group, timeout, output tail). |
 | `internal/server` | Routes, auth middleware, the SSE hub, session handlers, the terminal WebSocket. |
 | `web/` | `index.html`, its stylesheets in `css/` (one per cascade layer), its scripts in `js/` (one per feature, loaded in order) and vendored xterm.js, embedded with `go:embed`. |
@@ -164,20 +164,24 @@ Errors are `{message, code}`.
 | `GET /api/group/{id}/messages` | The messages the group's sessions sent each other, oldest first. |
 | `GET /api/session/{id}` | One session. |
 | `PATCH /api/session/{id}` | Rename: `{title}`; an empty title shows the folder name again. |
+| `PUT` / `DELETE /api/session/{id}/pin` | Pin / unpin; kept in the session's meta, answers the session. |
 | `DELETE /api/session/{id}` | App session: close (`C-c`, `/exit`, `Enter`, wait up to 5 s for `SessionEnd`, kill the tmux session, archive). Discovered session: hide (archive, no keys sent). |
 | `POST /api/session/{id}/answer` | `{seq, option}` or `{seq, text}` or `{seq, allow}`. |
 | `POST /api/session/{id}/message` | `{text}`. |
 | `POST /api/session/{id}/send` | `{to, text}`: session `{id}` messages the session of its group named `to` (tmux name or id); see [Session groups](#session-groups). |
 | `POST /api/session/{id}/interrupt` | Sends Esc. |
 | `POST /api/session/{id}/action` | `{list, index, input}`: the action at `index` of `primary` or `secondary`. A `send` action goes through the message path (`{input}` replaced) and answers `{session}`. A `run` action runs `sh -c <command>` in the session's folder with `$INBOX_INPUT`, in its own process group, killed after 5 minutes, and answers `{run: {exitCode, output, truncated, timedOut}}` with the last 16 KiB of output; 409 while the session is working or its folder is unknown. An unknown action or a missing input is a 400. |
-| `GET /api/session/{id}/diff` | Files with +/−, patch, untracked files. |
+| `GET /api/session/{id}/diff` | Files with +/−, patch, untracked files, and `uncommitted`: the paths a commit would take. |
+| `POST /api/session/{id}/commit` | `{message, paths}`: `git add --all -- <paths>`, `git commit -m <message> -- <paths>`, paths literal; answers `{output}`. 409 while the session is working. |
+| `POST /api/session/{id}/push` | `git push --set-upstream origin HEAD`; answers `{output}`. 409 on the default branch or a detached HEAD. |
+| `POST /api/session/{id}/pr` | Pushes, then `gh pr view <branch>`, else `gh pr create --draft --fill --head <branch>`; answers `{url}`. 404 without `gh` on PATH. |
 | `POST /api/session/{id}/open-ide` | Runs the `--ide` command on the session's folder (detached); 404 without one. |
 | `GET /api/session/{id}/terminal` | WebSocket: the live terminal. |
 | `GET /api/conversations` | History: past conversations from the transcripts that no listed session holds, latest first. |
 | `GET /api/conversation/{id}/preview` | The first prompt, the last three prompts and Claude's last reply. |
 | `POST /api/conversation/{id}/resume` | `claude --resume <id>` in its folder as a new app session. 409 while it runs in a listed session or when its folder is gone. |
 | `GET /api/repos` | The folders a session can start in, in the start form's order, each with the `group` heading it is listed under: the repositories Claude ran in before (latest first), the workspaces, then the other repositories under the roots; or, with `repo_groups` configured, the groups' repositories and workspaces in config order, then the workspaces no group lists. |
-| `GET /api/config` | `{ide, cheatSheet, stripPrefix, embedOrigin, primaryActions, secondaryActions}`: which optional buttons the page shows, the prefix it leaves out of repository names, the origin that may frame it, and the actions as `{label, kind, text, input, confirm}` (`kind` is `send` or `run`, `text` the prompt or command). |
+| `GET /api/config` | `{ide, pr, cheatSheet, stripPrefix, embedOrigin, primaryActions, secondaryActions}`: which optional buttons the page shows (`pr`: `gh` is on PATH), the prefix it leaves out of repository names, the origin that may frame it, and the actions as `{label, kind, text, input, confirm}` (`kind` is `send` or `run`, `text` the prompt or command). |
 | `GET /api/stream` | SSE: one message per state change, flagged `live`. |
 | `GET /cheatsheet` | Redirects to the `--cheatsheet` URL. |
 
@@ -298,6 +302,10 @@ Base: `git symbolic-ref --short refs/remotes/origin/HEAD`, else the first of `or
 (working tree, so uncommitted changes count), plus `git ls-files --others --exclude-standard` for new files.
 The patch is capped at 1 MiB and untracked files at 500. A workspace has no single repository, so its Diff tab
 says so.
+
+`git status --porcelain -z --no-renames --untracked-files=all` lists the uncommitted paths; Commit takes the list
+the page last loaded, so a file that changes after that stays out. Commit, push and `gh` run with a 2-minute
+timeout, `GIT_TERMINAL_PROMPT=0` and `GH_PROMPT_DISABLED=1`; a failure is a 409 with what the command printed.
 
 ## Page
 

@@ -1,7 +1,7 @@
 'use strict';
 
 document.addEventListener('keydown', e => {
-  if (overlay.open) return;  // the dialog handles its own Esc.
+  if (overlay.open || commitDialog.open) return;  // a dialog handles its own Esc.
   const tag = e.target.tagName;
   if (tag === 'INPUT' || tag === 'SELECT' || tag === 'TEXTAREA') {
     if (e.key === 'Escape' && e.target.id === 'reply-input') e.target.blur();

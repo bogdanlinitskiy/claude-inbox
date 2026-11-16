@@ -252,6 +252,7 @@ func runServe(args []string) error {
 	srv := &http.Server{
 		Handler: server.New(server.Config{
 			Port: f.port, Token: token, Sessions: sessions, Diff: gitdiff.Compute,
+			Commit: gitdiff.Commit, Push: gitdiff.Push, OpenPR: openPR(),
 			OpenIDE: openIDE(f.ide, logger), Web: web.Files, CheatSheet: f.cheatSheet, StripPrefix: f.stripPrefix, EmbedOrigin: embed,
 			PrimaryActions: cfg.PrimaryActions, SecondaryActions: cfg.SecondaryActions, Logger: logger,
 		}),
@@ -324,6 +325,14 @@ func openIDE(command string, logger *slog.Logger) func(ctx context.Context, arg 
 		return nil
 	}
 	return openWith(command, logger)
+}
+
+// openPR is nil without gh on PATH, which hides the Diff tab's Open PR.
+func openPR() func(ctx context.Context, dir string) (string, error) {
+	if _, err := exec.LookPath("gh"); err != nil {
+		return nil
+	}
+	return gitdiff.OpenPR
 }
 
 // runTmuxName prints the name claude-tmux gives a session in the current folder, from the same config as serve:

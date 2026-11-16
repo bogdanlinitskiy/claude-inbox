@@ -23,6 +23,12 @@ session's folder. The page picks an action by its place in the list and can neve
 every `run` in your config is one click away for anyone who can open the app. Keep destructive commands out of it,
 or put `confirm: true` on them.
 
+## Commit, Push and Open PR
+
+The Diff tab's buttons run `git` and `gh` in the session's folder with your own credentials: whoever can open the
+app can commit, push a feature branch and open a draft pull request. They never force a push, never push the default
+branch, and send no command of the page's own.
+
 ## The hook
 
 The hook writes to the state directory and nothing else. It prints nothing, always exits 0 and takes a few

@@ -82,6 +82,8 @@ let renamingId = null;
 let repoList = null;
 // Files the Diff tab shows expanded, by path, so a Refresh keeps them open.
 const openDiffFiles = new Set();
+// The session the Diff tab last loaded and its uncommitted paths, which the commit dialog commits.
+let shownDiff = null;
 // GET /api/config: which optional buttons have something behind them (hidden until it says so), the prefix left
 // out of repository names, and the origin that may frame the page.
 let pageConfig = { ide: false, cheatSheet: false, stripPrefix: '', embedOrigin: '', primaryActions: [], secondaryActions: [] };

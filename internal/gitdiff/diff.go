@@ -1,5 +1,6 @@
 // Package gitdiff builds what the Diff tab shows: everything a session changed in its repository since the branch
-// left the default branch, committed or not, including files it created but never added.
+// left the default branch, committed or not, including files it created but never added. It also runs the tab's
+// Commit, Push and Open PR (publish.go).
 package gitdiff
 
 import (
@@ -45,6 +46,8 @@ type Diff struct {
 	Files     []File `json:"files"`
 	Patch     string `json:"patch"`
 	Truncated bool   `json:"truncated"`
+	// Uncommitted lists the paths a commit would take: changed, deleted or untracked, against HEAD.
+	Uncommitted []string `json:"uncommitted"`
 }
 
 // Compute diffs the working tree of dir against its merge base with the default branch.
@@ -75,10 +78,14 @@ func Compute(ctx context.Context, dir string) (Diff, error) {
 	if err != nil {
 		return Diff{}, err
 	}
+	uncommitted, err := uncommittedPaths(ctx, dir)
+	if err != nil {
+		return Diff{}, err
+	}
 
 	// Never nil, so an unchanged repository encodes as "files": [] rather than null.
 	all := make([]File, 0, len(files)+len(untracked))
-	d := Diff{Base: base, Files: append(append(all, files...), untracked...), Patch: patch, Truncated: untrackedCut}
+	d := Diff{Base: base, Files: append(append(all, files...), untracked...), Patch: patch, Truncated: untrackedCut, Uncommitted: uncommitted}
 	if len(d.Patch) > maxPatchBytes {
 		d.Patch = d.Patch[:maxPatchBytes]
 		d.Truncated = true
@@ -159,6 +166,23 @@ func parseNumstat(out string) ([]File, error) {
 		files = append(files, f)
 	}
 	return files, nil
+}
+
+// uncommittedPaths reads `git status --porcelain -z` without renames: "XY path<NUL>" per changed path. Never nil,
+// so a clean tree encodes as [].
+func uncommittedPaths(ctx context.Context, dir string) ([]string, error) {
+	out, err := git(ctx, dir, "status", "--porcelain", "-z", "--no-renames", "--untracked-files=all")
+	if err != nil {
+		return nil, err
+	}
+	const status = len("XY ")
+	paths := []string{}
+	for entry := range strings.SplitSeq(out, "\x00") {
+		if len(entry) > status {
+			paths = append(paths, entry[status:])
+		}
+	}
+	return paths, nil
 }
 
 func untrackedFiles(ctx context.Context, dir string) ([]File, bool, error) {

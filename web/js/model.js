@@ -2,10 +2,12 @@
 
 const needs = s => s.state.needsYou;
 const group = s => (needs(s) ? 'needs' : s.state.kind === 'working' ? 'working' : 'done');
-// The rail is these three blocks, in this order. Blocked sessions are the reason the app exists, so they
-// are always the top of the list rather than wherever their ticket happens to sort.
-const BLOCK = { needs: 'Needs you', working: 'Working', done: 'Done' };
-const BLOCK_ORDER = ['needs', 'working', 'done'];
+// The rail is these blocks, in this order. Blocked sessions are the reason the app exists, so they are always
+// the top of the list rather than wherever their ticket happens to sort; a pinned one too, until it is answered.
+const BLOCK = { needs: 'Needs you', pinned: 'Pinned', working: 'Working', done: 'Done' };
+const BLOCK_ORDER = ['needs', 'pinned', 'working', 'done'];
+// block is the rail block a row sits in. A session of a group sits in its group's block instead.
+const block = s => (needs(s) ? 'needs' : s.pinned ? 'pinned' : group(s));
 
 function summary(s) {
   const st = s.state;
@@ -42,7 +44,7 @@ const cluster = s => s.ticket || `\u0000${s.id}`;
 // conversation is in History.
 function ordered() {
   const byBlock = new Map(BLOCK_ORDER.map(k => [k, []]));
-  for (const s of sessions.values()) if (shown(s) && !s.group) byBlock.get(group(s)).push(s);
+  for (const s of sessions.values()) if (shown(s) && !s.group) byBlock.get(block(s)).push(s);
   const blocks = [];
   for (const key of BLOCK_ORDER) {
     const list = byBlock.get(key);
@@ -86,11 +88,12 @@ function sessionGroups() {
   return list.sort((a, b) => (b.counts.needs > 0) - (a.counts.needs > 0) || b.latest - a.latest);
 }
 
-// railBlocks is the rail top to bottom: Needs you, the groups, then Working and Done.
+// railBlocks is the rail top to bottom: Needs you, Pinned, the groups, then Working and Done.
 function railBlocks() {
   const blocks = ordered();
   const groups = sessionGroups().map(g => ({ key: 'group', group: g, list: foldedGroups.has(g.id) ? [] : g.list }));
-  const at = blocks[0]?.key === 'needs' ? 1 : 0;
+  const at = blocks.findIndex(b => b.key !== 'needs' && b.key !== 'pinned');
+  if (at < 0) return [...blocks, ...groups];
   return [...blocks.slice(0, at), ...groups, ...blocks.slice(at)];
 }
 

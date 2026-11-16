@@ -78,6 +78,8 @@ type Meta struct {
 	// Group is the id of the group the session was started in with others, Role its part there.
 	Group string `json:"group,omitempty"`
 	Role  string `json:"role,omitempty"`
+	// Pinned: the page lists the session in its Pinned block.
+	Pinned bool `json:"pinned,omitempty"`
 }
 
 // GroupMessage is one message a session of a group sent another (claude-inbox send).

@@ -418,6 +418,56 @@ func TestRenameUnknownSession(t *testing.T) {
 	assert.ErrorIs(t, err, ErrNotFound)
 }
 
+func TestPin(t *testing.T) {
+	f := newFixture(t)
+	info := f.start(t, "PROJ-1", "")
+	changes, stop := f.m.Subscribe()
+	defer stop()
+
+	pinned, err := f.m.Pin(info.ID, true)
+
+	require.NoError(t, err)
+	assert.True(t, pinned.Pinned)
+	require.Len(t, changes, 1)
+	assert.True(t, (<-changes).Session.Pinned)
+	meta, err := f.store.LoadMeta(info.ID)
+	require.NoError(t, err)
+	assert.True(t, meta.Pinned)
+	assert.Equal(t, info.TmuxName, meta.TmuxName)
+
+	unpinned, err := f.m.Pin(info.ID, false)
+
+	require.NoError(t, err)
+	assert.False(t, unpinned.Pinned)
+	meta, err = f.store.LoadMeta(info.ID)
+	require.NoError(t, err)
+	assert.False(t, meta.Pinned)
+}
+
+func TestPinKeepsTheTitle(t *testing.T) {
+	f := newFixture(t)
+	info := f.start(t, "PROJ-1", "")
+	title := "Rate limit"
+	_, err := f.m.Rename(info.ID, title)
+	require.NoError(t, err)
+
+	_, err = f.m.Pin(info.ID, true)
+
+	require.NoError(t, err)
+	meta, err := f.store.LoadMeta(info.ID)
+	require.NoError(t, err)
+	assert.Equal(t, title, meta.Title)
+	assert.True(t, meta.Pinned)
+}
+
+func TestPinUnknownSession(t *testing.T) {
+	f := newFixture(t)
+
+	_, err := f.m.Pin("zzzz9999", true)
+
+	assert.ErrorIs(t, err, ErrNotFound)
+}
+
 func TestAnswerOption(t *testing.T) {
 	f := newFixture(t)
 	info := f.start(t, "PROJ-1", "")

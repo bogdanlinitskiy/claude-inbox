@@ -96,6 +96,13 @@ async function act(s, action, target) {
     case 'back':
       $('#main').classList.remove('show-detail');
       break;
+    case 'pin':
+      try {
+        apply({ session: await api(s.pinned ? 'DELETE' : 'PUT', `/api/session/${encodeURIComponent(s.id)}/pin`), live: false });
+      } catch (err) {
+        toast(s.pinned ? 'Could not unpin' : 'Could not pin', errorText(err));
+      }
+      break;
     case 'rename':
       startRename(s);
       break;
@@ -117,6 +124,15 @@ async function act(s, action, target) {
       break;
     case 'refresh-diff':
       loadDiff(s);
+      break;
+    case 'commit':
+      openCommit(s);
+      break;
+    case 'push':
+      pushBranch(s, target);
+      break;
+    case 'open-pr':
+      openPR(s, target);
       break;
   }
 }

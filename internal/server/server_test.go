@@ -160,6 +160,16 @@ func (f *fakeSessions) Rename(id, title string) (session.Info, error) {
 	return info, nil
 }
 
+func (f *fakeSessions) Pin(id string, pinned bool) (session.Info, error) {
+	info, err := f.Get(id)
+	if err != nil {
+		return session.Info{}, err
+	}
+	info.Pinned = pinned
+	f.infos[id] = info
+	return info, nil
+}
+
 func (f *fakeSessions) Repos() ([]session.Repo, error) {
 	return []session.Repo{{Name: "acme-contact", Dir: "/work/acme-contact"}}, nil
 }
@@ -182,7 +192,14 @@ type fixture struct {
 	diffDir  string
 	diffErr  error
 	ideDir   string
+	// What the Diff tab's git buttons were called with, and what they fail with.
+	gitDir        string
+	commitMessage string
+	commitPaths   []string
+	gitErr        error
 }
+
+const prURL = "https://github.com/acme/contact/pull/7"
 
 func newFixture() *fixture {
 	f := &fixture{sessions: newFakeSessions()}
@@ -195,6 +212,18 @@ func newFixture() *fixture {
 		OpenIDE: func(_ context.Context, dir string) error {
 			f.ideDir = dir
 			return nil
+		},
+		Commit: func(_ context.Context, dir, message string, paths []string) (string, error) {
+			f.gitDir, f.commitMessage, f.commitPaths = dir, message, paths
+			return "[PROJ-1 abc1234] " + message, f.gitErr
+		},
+		Push: func(_ context.Context, dir string) (string, error) {
+			f.gitDir = dir
+			return "To github.com:acme/contact.git", f.gitErr
+		},
+		OpenPR: func(_ context.Context, dir string) (string, error) {
+			f.gitDir = dir
+			return prURL, f.gitErr
 		},
 		Web:    fstest.MapFS{"index.html": {Data: []byte(pageText)}, "app.js": {Data: []byte("js")}},
 		Logger: slog.New(slog.NewTextHandler(io.Discard, nil)),
@@ -580,6 +609,31 @@ func TestRenameErrors(t *testing.T) {
 	assert.Equal(t, codeValidation, errorCode(t, unknownField))
 }
 
+func TestPin(t *testing.T) {
+	f := newFixture()
+	path := "/api/session/" + sessionID + "/pin"
+
+	pin := f.do(request(http.MethodPut, path, ""))
+	pinned := f.sessions.infos[sessionID].Pinned
+	unpin := f.do(request(http.MethodDelete, path, ""))
+
+	require.Equal(t, http.StatusOK, pin.Code)
+	assert.True(t, pinned)
+	require.Equal(t, http.StatusOK, unpin.Code)
+	assert.False(t, f.sessions.infos[sessionID].Pinned)
+	var info session.Info
+	require.NoError(t, json.Unmarshal(unpin.Body.Bytes(), &info))
+	assert.Equal(t, sessionID, info.ID)
+}
+
+func TestPinUnknownSession(t *testing.T) {
+	f := newFixture()
+
+	w := f.do(request(http.MethodPut, "/api/session/zzzz9999/pin", ""))
+
+	assert.Equal(t, http.StatusNotFound, w.Code)
+}
+
 func TestDiffAndOpenIDEUseTheSessionDir(t *testing.T) {
 	f := newFixture()
 	dir := f.sessions.infos[sessionID].Dir
@@ -623,14 +677,15 @@ func TestPageConfig(t *testing.T) {
 
 	withIDE := f.do(request(http.MethodGet, "/api/config", ""))
 	f.srv.cfg.OpenIDE = nil
+	f.srv.cfg.OpenPR = nil
 	f.srv.cfg.CheatSheet = "http://127.0.0.1:9000/cheat.html"
 	f.srv.cfg.StripPrefix = "acme-"
 	f.srv.cfg.EmbedOrigin = "http://127.0.0.1:9000"
 	withCheatSheet := f.do(request(http.MethodGet, "/api/config", ""))
 
 	assert.Equal(t, http.StatusOK, withIDE.Code)
-	assert.JSONEq(t, `{"ide":true,"cheatSheet":false,"stripPrefix":"","embedOrigin":"","primaryActions":[],"secondaryActions":[]}`, withIDE.Body.String())
-	assert.JSONEq(t, `{"ide":false,"cheatSheet":true,"stripPrefix":"acme-","embedOrigin":"http://127.0.0.1:9000","primaryActions":[],"secondaryActions":[]}`, withCheatSheet.Body.String())
+	assert.JSONEq(t, `{"ide":true,"pr":true,"cheatSheet":false,"stripPrefix":"","embedOrigin":"","primaryActions":[],"secondaryActions":[]}`, withIDE.Body.String())
+	assert.JSONEq(t, `{"ide":false,"pr":false,"cheatSheet":true,"stripPrefix":"acme-","embedOrigin":"http://127.0.0.1:9000","primaryActions":[],"secondaryActions":[]}`, withCheatSheet.Body.String())
 }
 
 func TestDiffOutsideARepository(t *testing.T) {
