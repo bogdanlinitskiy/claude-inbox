@@ -94,9 +94,10 @@
   .term-host {
     flex: 1; min-height: 0; overflow: hidden;
     background: var(--term-bg);
-    padding: var(--s2) var(--s1) var(--s1) var(--term-pad);
 
-    & .xterm { height: 100%; }
+    /* The padding sits here, not on the host: FitAddon subtracts only .xterm's padding, and with border-box the
+       host's would be counted as rows, so the last row (Claude Code's footer) was clipped. */
+    & .xterm { height: 100%; padding: var(--s2) var(--s1) var(--s1) var(--term-pad); }
     /* tmux scrolls (mouse mode); xterm's own scrollbar would only change the width and trigger another fit. */
     & .xterm-viewport { overflow-y: hidden; }
   }
