@@ -271,7 +271,7 @@ function headHtml(s) {
       <span class="state ${k.cls}">${k.label}</span>
       <div class="d-tools">
         ${pageConfig.secondaryActions.length ? '<button type="button" class="btn small" data-act="actions" aria-haspopup="listbox" title="Actions (.)">Actions <span class="caret"></span></button><span class="act-sep"></span>' : ''}
-        ${s.group ? '' : `<button type="button" class="btn small" data-act="pin" aria-pressed="${!!s.pinned}" title="${s.pinned ? 'Back to its state block' : 'Keep it in Pinned, under Needs you'}">${s.pinned ? 'Unpin' : 'Pin'}</button>`}
+        ${s.group ? '' : `<button type="button" class="btn small" data-act="pin" title="${s.pinned ? 'Back to its state block' : 'Keep it in Pinned, under Needs you'}">${s.pinned ? 'Unpin' : 'Pin'}</button>`}
         <button type="button" class="btn small" data-act="rename">Rename</button>
         ${pageConfig.ide ? '<button type="button" class="btn small" data-act="ide">Open in IDE</button>' : ''}
         <button type="button" class="btn small${s.discovered ? '' : ' danger'}${closeArmed === s.id ? ' armed' : ''}" data-act="close">${closeLabel}</button>
