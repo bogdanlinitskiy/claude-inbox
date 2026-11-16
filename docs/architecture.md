@@ -160,7 +160,7 @@ Errors are `{message, code}`.
 | `GET /` | The page. |
 | `GET /api/sessions` | All sessions with their state. |
 | `POST /api/sessions` | Start a session: `{dir, ticket, title, prompt, worktree, branch}`. |
-| `POST /api/groups` | Start a group: `{dirs, ticket, title, prompt, worktree, branch, coordinator, shareDirs}`; answers the started sessions. |
+| `POST /api/groups` | Start a group: `{dirs, ticket, tickets, title, prompt, worktree, branch, coordinator, shareDirs}`; answers the started sessions. |
 | `GET /api/group/{id}/messages` | The messages the group's sessions sent each other, oldest first. |
 | `GET /api/session/{id}` | One session. |
 | `PATCH /api/session/{id}` | Rename: `{title}`; an empty title shows the folder name again. |
@@ -208,12 +208,14 @@ can frame the app (clickjacking).
 
 `POST /api/groups` starts one session per repository in `dirs`, on one ticket, as a group with a new 8-character
 group id, which every member keeps in its metadata (`group`) next to its part (`role`: `coordinator` or
-`worker`).
+`worker`). With `tickets`, it starts one session per ticket in every folder instead, each on its own ticket and
+named after it (`<ticket>-<repo>`), so several sessions can work in one folder; `ticket` is then the coordinator's.
+Several tickets take no worktree, since they would all share one branch.
 
 1. Each folder must be listed, as for a single session. With `worktree`, every worktree is made first, so a bad
    branch starts nothing.
 2. With `coordinator`, one more session runs in the deepest folder that holds all the repositories, named
-   `<ticket>-coordinator`.
+   `<ticket>-coordinator`; with `tickets` in one folder, it runs in that folder, next to the workers.
 3. Every tmux name is reserved before any session starts, so each session's system prompt can name all of them.
 4. Each session runs `claude … [--add-dir <the other members' folders>] --append-system-prompt <the group> [<prompt>]`.
    The system prompt lists the members (name, role, repository, folder), says how to message one, and gives the

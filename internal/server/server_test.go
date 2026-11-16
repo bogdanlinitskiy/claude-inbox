@@ -533,6 +533,7 @@ func TestAnswerErrors(t *testing.T) {
 		{err: session.ErrNoBranch, wantStatus: http.StatusBadRequest, wantCode: codeValidation},
 		{err: gitdiff.ErrBadBranch, wantStatus: http.StatusBadRequest, wantCode: codeValidation},
 		{err: session.ErrNoWorktree, wantStatus: http.StatusBadRequest, wantCode: codeValidation},
+		{err: session.ErrTicketsWorktree, wantStatus: http.StatusBadRequest, wantCode: codeValidation},
 		{err: io.ErrUnexpectedEOF, wantStatus: http.StatusInternalServerError, wantCode: codeServerError},
 	}
 	for _, tc := range cases {

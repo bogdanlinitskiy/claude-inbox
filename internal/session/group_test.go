@@ -103,6 +103,31 @@ func TestStartGroupWithoutCoordinator(t *testing.T) {
 	}
 }
 
+func TestStartGroupWithTicketsInOneFolder(t *testing.T) {
+	f := newFixture(t)
+	first, second, coordinatorTicket := "PROJ-1", "PROJ-2", "PROJ-9"
+
+	infos, err := f.m.StartGroup(context.Background(), StartGroupRequest{
+		Dirs: []string{f.repo}, Ticket: coordinatorTicket, Tickets: []string{" " + first, second, first, ""}, Coordinator: true,
+	})
+
+	require.NoError(t, err)
+	require.Len(t, infos, 3, "a blank or repeated ticket starts no session")
+	coordinator, firstInfo, secondInfo := infos[0], infos[1], infos[2]
+	assert.Equal(t, f.repo, coordinator.Dir, "with one folder the coordinator runs in it, next to the workers")
+	assert.Equal(t, coordinatorTicket, coordinator.Ticket)
+	assert.Equal(t, coordinatorTicket+"-"+RoleCoordinator, coordinator.TmuxName)
+	for i, ticket := range []string{first, second} {
+		worker := infos[i+1]
+		assert.Equal(t, RoleWorker, worker.Role)
+		assert.Equal(t, f.repo, worker.Dir)
+		assert.Equal(t, ticket, worker.Ticket)
+	}
+	assert.NotEqual(t, firstInfo.TmuxName, secondInfo.TmuxName)
+	assert.Contains(t, firstInfo.TmuxName, first)
+	assert.Contains(t, secondInfo.TmuxName, second)
+}
+
 func TestStartGroupRefusals(t *testing.T) {
 	f := newFixture(t)
 	ctx := context.Background()
@@ -115,6 +140,9 @@ func TestStartGroupRefusals(t *testing.T) {
 
 	_, err = f.m.StartGroup(ctx, StartGroupRequest{Dirs: []string{f.repo}, Worktree: true})
 	require.ErrorIs(t, err, ErrNoBranch)
+
+	_, err = f.m.StartGroup(ctx, StartGroupRequest{Dirs: []string{f.repo}, Tickets: []string{"PROJ-1", "PROJ-2"}, Worktree: true, Branch: "b"})
+	require.ErrorIs(t, err, ErrTicketsWorktree)
 
 	assert.Empty(t, f.tmux.started, "nothing starts when one repository cannot")
 }

@@ -27,6 +27,8 @@ var (
 	plainArg = regexp.MustCompile(`^[A-Za-z0-9_./=-]+$`)
 
 	ErrNoRepos = errors.New("a group needs at least one repository")
+	// ErrTicketsWorktree: several tickets share each folder, so they cannot each have a worktree on one branch.
+	ErrTicketsWorktree = errors.New("several tickets share one folder, so they take no worktree")
 	// ErrNoGroup: the sending session was not started in a group.
 	ErrNoGroup = errors.New("the session is not in a group")
 	// ErrNotInGroup: no session of the sender's group has that name.
@@ -38,6 +40,9 @@ var (
 type StartGroupRequest struct {
 	Dirs   []string `json:"dirs"`
 	Ticket string   `json:"ticket"`
+	// Tickets, when set, starts one session per ticket in every folder of Dirs, each on its ticket, instead of
+	// one session per folder on Ticket; Ticket is then the coordinator's.
+	Tickets []string `json:"tickets"`
 	Title  string   `json:"title"`
 	Prompt string   `json:"prompt"`
 	// Worktree starts each session in a new git worktree of its repository, on Branch.
@@ -61,6 +66,16 @@ func (m *Manager) StartGroup(ctx context.Context, req StartGroupRequest) ([]Info
 	if len(dirs) == 0 {
 		return nil, ErrNoRepos
 	}
+	var tickets []string
+	for _, t := range req.Tickets {
+		if t = strings.TrimSpace(t); t != "" && !slices.Contains(tickets, t) {
+			tickets = append(tickets, t)
+		}
+	}
+	req.Tickets = tickets
+	if req.Worktree && len(req.Tickets) > 1 {
+		return nil, ErrTicketsWorktree
+	}
 	groupID, err := store.NewID()
 	if err != nil {
 		return nil, err
@@ -71,11 +86,18 @@ func (m *Manager) StartGroup(ctx context.Context, req StartGroupRequest) ([]Info
 	}
 	if req.Coordinator {
 		dir := commonDir(repoDirs)
+		if len(req.Tickets) > 0 && len(dirs) == 1 {
+			// The workers share the folder, so the coordinator runs there too, with its CLAUDE.md and skills.
+			dir = repoDirs[0]
+		}
 		coordinator := member{
 			meta:   store.Meta{Title: strings.TrimSpace(req.Title), Repo: filepath.Base(dir), Dir: dir, Group: groupID, Role: RoleCoordinator},
 			branch: m.branchOf(ctx, store.Meta{Dir: dir}),
 		}
 		coordinator.meta.Ticket = members[0].meta.Ticket
+		if len(req.Tickets) > 0 {
+			coordinator.meta.Ticket = strings.TrimSpace(req.Ticket)
+		}
 		members = append([]member{coordinator}, members...)
 	}
 	reserved := map[string]bool{}
@@ -104,7 +126,11 @@ func (m *Manager) StartGroup(ctx context.Context, req StartGroupRequest) ([]Info
 
 // groupMembers resolves the workers, making their worktrees, and returns them with their repositories' folders.
 func (m *Manager) groupMembers(ctx context.Context, dirs []string, req StartGroupRequest, groupID string) ([]member, []string, error) {
-	members := make([]member, 0, len(dirs)+1)
+	tickets := req.Tickets
+	if len(tickets) == 0 {
+		tickets = []string{strings.TrimSpace(req.Ticket)}
+	}
+	members := make([]member, 0, len(dirs)*len(tickets)+1)
 	repoDirs := make([]string, 0, len(dirs))
 	for _, d := range dirs {
 		repo, err := m.repoAt(d)
@@ -118,14 +144,15 @@ func (m *Manager) groupMembers(ctx context.Context, dirs []string, req StartGrou
 			}
 		}
 		branch := m.branchOf(ctx, store.Meta{Dir: dir})
-		ticket := strings.TrimSpace(req.Ticket)
-		if ticket == "" {
-			ticket = TicketIn(m.cfg.TicketPattern, branch)
+		for _, ticket := range tickets {
+			if ticket == "" {
+				ticket = TicketIn(m.cfg.TicketPattern, branch)
+			}
+			members = append(members, member{
+				meta:   store.Meta{Ticket: ticket, Title: strings.TrimSpace(req.Title), Repo: repo.Name, Dir: dir, Worktree: req.Worktree, Group: groupID, Role: RoleWorker},
+				branch: branch,
+			})
 		}
-		members = append(members, member{
-			meta:   store.Meta{Ticket: ticket, Title: strings.TrimSpace(req.Title), Repo: repo.Name, Dir: dir, Worktree: req.Worktree, Group: groupID, Role: RoleWorker},
-			branch: branch,
-		})
 		repoDirs = append(repoDirs, repo.Dir)
 	}
 	return members, repoDirs, nil
