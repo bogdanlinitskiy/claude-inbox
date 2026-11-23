@@ -32,7 +32,7 @@ state with one pure function, tested against a recorded run (`testdata/spike-hoo
 | `sessions/<id>.json` | serve, hook | Metadata: id, ticket, title, repo, dir, tmux name, created at; for discovered sessions also pid, tmux socket and pane. |
 | `events/<id>.jsonl` | hook and serve | One JSON object per line: `{ts, source: "hook", payload}` or `{ts, source: "app", event}`. |
 | `hook-settings.json` | serve, at start-up | The settings passed with `--settings`; points every hook at the absolute path of the binary. |
-| `archive/` | serve | Metadata and events of ended sessions, for debugging; `serve` deletes files older than 30 days when it starts. |
+| `archive/` | serve | Metadata and events of ended sessions: History reads their titles by `claudeId`, the rest is for debugging; `serve` deletes files older than 30 days when it starts. |
 | `groups/<group id>.jsonl` | serve | The messages the sessions of a group sent each other: `{sentAt, from, to, text}` per line. |
 | `serve.url` | serve | The login link of the running app; `claude-inbox send` reads it to reach the app. |
 

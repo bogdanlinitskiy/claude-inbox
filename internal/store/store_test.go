@@ -213,6 +213,19 @@ func TestArchive(t *testing.T) {
 	}
 }
 
+func TestArchivedMetas(t *testing.T) {
+	d := New(t.TempDir())
+	require.NoError(t, d.Init())
+	meta := Meta{ID: "abcd1234", Title: "Rate limit", ClaudeID: "11111111-1111-4111-8111-111111111111"}
+	require.NoError(t, d.SaveMeta(meta))
+	require.NoError(t, d.Archive(meta.ID))
+
+	metas, err := d.ArchivedMetas()
+
+	require.NoError(t, err)
+	assert.Equal(t, []Meta{meta}, metas)
+}
+
 func TestArchiveWithoutEvents(t *testing.T) {
 	dir := New(t.TempDir())
 	require.NoError(t, dir.Init())

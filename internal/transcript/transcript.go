@@ -58,10 +58,11 @@ type Preview struct {
 	LastReply   string   `json:"lastReply"`
 }
 
-// Conversation is one past conversation: its folder and branch as it started, and its title.
+// Conversation is one past conversation: its folder and branch as it started, its title and its first prompt.
 type Conversation struct {
 	ID        string
 	Title     string
+	Prompt    string
 	Dir       string
 	Branch    string
 	UpdatedAt time.Time
@@ -219,6 +220,7 @@ func read(path string) (Conversation, bool, error) {
 			aiTitle = l.AITitle
 		}
 	}
+	c.Prompt = prompt
 	c.Title = cmp.Or(customTitle, aiTitle, prompt)
 	return c, true, nil
 }

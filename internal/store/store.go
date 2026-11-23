@@ -36,7 +36,8 @@ const (
 	metaExt      = ".json"
 )
 
-// archiveKeep is how long archived files stay after their last change; only debugging reads them.
+// archiveKeep is how long archived files stay after their last change; History reads the titles of archived
+// sessions, everything else is there for debugging.
 const archiveKeep = 30 * 24 * time.Hour
 
 var (
@@ -80,6 +81,9 @@ type Meta struct {
 	Role  string `json:"role,omitempty"`
 	// Pinned: the page lists the session in its Pinned block.
 	Pinned bool `json:"pinned,omitempty"`
+	// ClaudeID is Claude Code's id of the conversation, written as the session is archived, so History can find
+	// the title the page gave it.
+	ClaudeID string `json:"claudeId,omitempty"`
 }
 
 // GroupMessage is one message a session of a group sent another (claude-inbox send).
@@ -388,6 +392,33 @@ func (d Dir) Archive(id string) error {
 		}
 	}
 	return nil
+}
+
+// ArchivedMetas returns the metadata of every archived session.
+func (d Dir) ArchivedMetas() ([]Meta, error) {
+	paths, err := filepath.Glob(filepath.Join(d.root, archiveDir, "*"+metaExt))
+	if err != nil {
+		return nil, fmt.Errorf("list archive: %w", err)
+	}
+	metas := make([]Meta, 0, len(paths))
+	for _, path := range paths {
+		if !ValidID(strings.TrimSuffix(filepath.Base(path), metaExt)) {
+			continue
+		}
+		data, err := os.ReadFile(path)
+		if errors.Is(err, os.ErrNotExist) {
+			continue
+		}
+		if err != nil {
+			return nil, fmt.Errorf("read archived %s: %w", filepath.Base(path), err)
+		}
+		var m Meta
+		if err := json.Unmarshal(data, &m); err != nil {
+			return nil, fmt.Errorf("decode archived %s: %w", filepath.Base(path), err)
+		}
+		metas = append(metas, m)
+	}
+	return metas, nil
 }
 
 // PruneArchive deletes the archived files that last changed more than archiveKeep before now.
