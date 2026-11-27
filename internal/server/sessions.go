@@ -247,6 +247,8 @@ func (s *Server) sessionError(w http.ResponseWriter, r *http.Request, err error)
 		writeError(w, http.StatusConflict, codeConflict, err.Error())
 	case errors.Is(err, session.ErrNoBranch), errors.Is(err, gitdiff.ErrBadBranch):
 		writeValidation(w, "Validation error.", map[string]string{"branch": "Enter a valid branch name for the worktree."})
+	case errors.Is(err, session.ErrTicketsWorktree):
+		writeValidation(w, "Validation error.", map[string]string{"tickets": "Several tickets share each folder, so they take no worktree."})
 	case errors.Is(err, session.ErrNoWorktree):
 		writeValidation(w, "Validation error.", map[string]string{"dir": "A workspace has no worktrees. Pick a repository."})
 	case errors.Is(err, session.ErrStale):

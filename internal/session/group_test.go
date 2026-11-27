@@ -103,6 +103,39 @@ func TestStartGroupWithoutCoordinator(t *testing.T) {
 	}
 }
 
+func TestStartGroupWithTicketsInOneFolder(t *testing.T) {
+	f := newFixture(t)
+	first, second, coordinatorTicket := "PROJ-1", "PROJ-2", "PROJ-9"
+	prompt, workerCommand := "Collect the reports.", "/split-prep "
+
+	infos, err := f.m.StartGroup(context.Background(), StartGroupRequest{
+		Dirs: []string{f.repo}, Ticket: coordinatorTicket, Tickets: []string{" " + first, second, first, ""}, Coordinator: true,
+		Prompt: prompt, WorkerPrompt: workerCommand + TicketPlaceholder,
+	})
+
+	require.NoError(t, err)
+	require.Len(t, infos, 3, "a blank or repeated ticket starts no session")
+	coordinator, firstInfo, secondInfo := infos[0], infos[1], infos[2]
+	assert.Equal(t, f.repo, coordinator.Dir, "with one folder the coordinator runs in it, next to the workers")
+	assert.Equal(t, coordinatorTicket, coordinator.Ticket)
+	assert.Equal(t, coordinatorTicket+"-"+RoleCoordinator, coordinator.TmuxName)
+	for i, ticket := range []string{first, second} {
+		worker := infos[i+1]
+		assert.Equal(t, RoleWorker, worker.Role)
+		assert.Equal(t, f.repo, worker.Dir)
+		assert.Equal(t, ticket, worker.Ticket)
+		cmd := f.tmux.started[i+1].Command
+		assert.Equal(t, workerCommand+ticket, cmd[len(cmd)-1], "each worker starts on its own ticket")
+		assert.Contains(t, cmd[len(cmd)-2], "Your first message is your part")
+	}
+	coordCmd := f.tmux.started[0].Command
+	assert.Equal(t, prompt, coordCmd[len(coordCmd)-1])
+	assert.Contains(t, coordCmd[len(coordCmd)-2], "do not send it again")
+	assert.NotEqual(t, firstInfo.TmuxName, secondInfo.TmuxName)
+	assert.Contains(t, firstInfo.TmuxName, first)
+	assert.Contains(t, secondInfo.TmuxName, second)
+}
+
 func TestStartGroupRefusals(t *testing.T) {
 	f := newFixture(t)
 	ctx := context.Background()
@@ -115,6 +148,9 @@ func TestStartGroupRefusals(t *testing.T) {
 
 	_, err = f.m.StartGroup(ctx, StartGroupRequest{Dirs: []string{f.repo}, Worktree: true})
 	require.ErrorIs(t, err, ErrNoBranch)
+
+	_, err = f.m.StartGroup(ctx, StartGroupRequest{Dirs: []string{f.repo}, Tickets: []string{"PROJ-1", "PROJ-2"}, Worktree: true, Branch: "b"})
+	require.ErrorIs(t, err, ErrTicketsWorktree)
 
 	assert.Empty(t, f.tmux.started, "nothing starts when one repository cannot")
 }

@@ -18,6 +18,9 @@ const (
 	RoleCoordinator = "coordinator"
 	RoleWorker      = "worker"
 
+	// TicketPlaceholder in WorkerPrompt is replaced with each worker's ticket.
+	TicketPlaceholder = "{ticket}"
+
 	addDirFlag       = "--add-dir"
 	systemPromptFlag = "--append-system-prompt"
 )
@@ -27,6 +30,8 @@ var (
 	plainArg = regexp.MustCompile(`^[A-Za-z0-9_./=-]+$`)
 
 	ErrNoRepos = errors.New("a group needs at least one repository")
+	// ErrTicketsWorktree: several tickets share each folder, so they cannot each have a worktree on one branch.
+	ErrTicketsWorktree = errors.New("several tickets share one folder, so they take no worktree")
 	// ErrNoGroup: the sending session was not started in a group.
 	ErrNoGroup = errors.New("the session is not in a group")
 	// ErrNotInGroup: no session of the sender's group has that name.
@@ -38,6 +43,11 @@ var (
 type StartGroupRequest struct {
 	Dirs   []string `json:"dirs"`
 	Ticket string   `json:"ticket"`
+	// Tickets, when set, starts one session per ticket in every folder of Dirs, each on its ticket, instead of
+	// one session per folder on Ticket; Ticket is then the coordinator's.
+	Tickets []string `json:"tickets"`
+	// WorkerPrompt, when set, is every worker's first prompt, with TicketPlaceholder replaced by its ticket.
+	WorkerPrompt string `json:"workerPrompt"`
 	Title  string   `json:"title"`
 	Prompt string   `json:"prompt"`
 	// Worktree starts each session in a new git worktree of its repository, on Branch.
@@ -52,6 +62,8 @@ type StartGroupRequest struct {
 type member struct {
 	meta   store.Meta
 	branch string
+	// prompt is the session's first prompt; empty starts it waiting.
+	prompt string
 }
 
 // StartGroup starts the sessions of a group. Every worktree is made before any session starts, so a bad branch
@@ -60,6 +72,16 @@ func (m *Manager) StartGroup(ctx context.Context, req StartGroupRequest) ([]Info
 	dirs := slices.Compact(slices.Sorted(slices.Values(req.Dirs)))
 	if len(dirs) == 0 {
 		return nil, ErrNoRepos
+	}
+	var tickets []string
+	for _, t := range req.Tickets {
+		if t = strings.TrimSpace(t); t != "" && !slices.Contains(tickets, t) {
+			tickets = append(tickets, t)
+		}
+	}
+	req.Tickets = tickets
+	if req.Worktree && len(req.Tickets) > 1 {
+		return nil, ErrTicketsWorktree
 	}
 	groupID, err := store.NewID()
 	if err != nil {
@@ -71,11 +93,18 @@ func (m *Manager) StartGroup(ctx context.Context, req StartGroupRequest) ([]Info
 	}
 	if req.Coordinator {
 		dir := commonDir(repoDirs)
+		if len(req.Tickets) > 0 && len(dirs) == 1 {
+			// The workers share the folder, so the coordinator runs there too, with its CLAUDE.md and skills.
+			dir = repoDirs[0]
+		}
 		coordinator := member{
 			meta:   store.Meta{Title: strings.TrimSpace(req.Title), Repo: filepath.Base(dir), Dir: dir, Group: groupID, Role: RoleCoordinator},
 			branch: m.branchOf(ctx, store.Meta{Dir: dir}),
 		}
 		coordinator.meta.Ticket = members[0].meta.Ticket
+		if len(req.Tickets) > 0 {
+			coordinator.meta.Ticket = strings.TrimSpace(req.Ticket)
+		}
 		members = append([]member{coordinator}, members...)
 	}
 	reserved := map[string]bool{}
@@ -83,16 +112,19 @@ func (m *Manager) StartGroup(ctx context.Context, req StartGroupRequest) ([]Info
 		if members[i].meta, err = m.reserve(ctx, members[i].meta, reserved); err != nil {
 			return nil, err
 		}
+		members[i].prompt = req.Prompt
+		switch {
+		case members[i].meta.Role == RoleWorker && strings.TrimSpace(req.WorkerPrompt) != "":
+			members[i].prompt = strings.ReplaceAll(strings.TrimSpace(req.WorkerPrompt), TicketPlaceholder, members[i].meta.Ticket)
+		case req.Coordinator && members[i].meta.Role != RoleCoordinator:
+			members[i].prompt = ""
+		}
 	}
 
 	infos := make([]Info, 0, len(members))
 	var errs []error
 	for _, mb := range members {
-		prompt := req.Prompt
-		if req.Coordinator && mb.meta.Role != RoleCoordinator {
-			prompt = ""
-		}
-		info, err := m.run(ctx, mb.meta, mb.branch, m.groupCommand(mb, members, req.ShareDirs, prompt))
+		info, err := m.run(ctx, mb.meta, mb.branch, m.groupCommand(mb, members, req.ShareDirs))
 		if err != nil {
 			errs = append(errs, fmt.Errorf("start %s: %w", mb.meta.TmuxName, err))
 			continue
@@ -104,7 +136,11 @@ func (m *Manager) StartGroup(ctx context.Context, req StartGroupRequest) ([]Info
 
 // groupMembers resolves the workers, making their worktrees, and returns them with their repositories' folders.
 func (m *Manager) groupMembers(ctx context.Context, dirs []string, req StartGroupRequest, groupID string) ([]member, []string, error) {
-	members := make([]member, 0, len(dirs)+1)
+	tickets := req.Tickets
+	if len(tickets) == 0 {
+		tickets = []string{strings.TrimSpace(req.Ticket)}
+	}
+	members := make([]member, 0, len(dirs)*len(tickets)+1)
 	repoDirs := make([]string, 0, len(dirs))
 	for _, d := range dirs {
 		repo, err := m.repoAt(d)
@@ -118,14 +154,15 @@ func (m *Manager) groupMembers(ctx context.Context, dirs []string, req StartGrou
 			}
 		}
 		branch := m.branchOf(ctx, store.Meta{Dir: dir})
-		ticket := strings.TrimSpace(req.Ticket)
-		if ticket == "" {
-			ticket = TicketIn(m.cfg.TicketPattern, branch)
+		for _, ticket := range tickets {
+			if ticket == "" {
+				ticket = TicketIn(m.cfg.TicketPattern, branch)
+			}
+			members = append(members, member{
+				meta:   store.Meta{Ticket: ticket, Title: strings.TrimSpace(req.Title), Repo: repo.Name, Dir: dir, Worktree: req.Worktree, Group: groupID, Role: RoleWorker},
+				branch: branch,
+			})
 		}
-		members = append(members, member{
-			meta:   store.Meta{Ticket: ticket, Title: strings.TrimSpace(req.Title), Repo: repo.Name, Dir: dir, Worktree: req.Worktree, Group: groupID, Role: RoleWorker},
-			branch: branch,
-		})
 		repoDirs = append(repoDirs, repo.Dir)
 	}
 	return members, repoDirs, nil
@@ -133,7 +170,7 @@ func (m *Manager) groupMembers(ctx context.Context, dirs []string, req StartGrou
 
 // groupCommand is claude with the other members' folders readable and the group described in the system prompt.
 // --add-dir takes several values, so the system prompt, which takes one, sits between them and the first prompt.
-func (m *Manager) groupCommand(self member, members []member, shareDirs bool, prompt string) []string {
+func (m *Manager) groupCommand(self member, members []member, shareDirs bool) []string {
 	cmd := m.claudeBase()
 	if shareDirs {
 		var others []string
@@ -147,15 +184,18 @@ func (m *Manager) groupCommand(self member, members []member, shareDirs bool, pr
 		}
 	}
 	cmd = append(cmd, systemPromptFlag, m.groupPrompt(self, members, shareDirs))
-	return appendPrompt(cmd, prompt)
+	return appendPrompt(cmd, self.prompt)
 }
 
 // groupPrompt tells a session who else is in its group, what its part is, and how to reach the others.
 func (m *Manager) groupPrompt(self member, members []member, shareDirs bool) string {
 	var coordinator string
+	workersPrompted := false
 	for _, mb := range members {
 		if mb.meta.Role == RoleCoordinator {
 			coordinator = mb.meta.TmuxName
+		} else if mb.prompt != "" {
+			workersPrompted = true
 		}
 	}
 	quoted := make([]string, len(m.cfg.SendCommand))
@@ -187,16 +227,25 @@ func (m *Manager) groupPrompt(self member, members []member, shareDirs bool) str
 		"a busy session gets it when its turn ends. Messages you receive start with [from <name>].\n", send, self.meta.TmuxName)
 	switch {
 	case self.meta.Role == RoleCoordinator:
-		b.WriteString("You coordinate: split the task, send each worker its part, answer their questions, wait for their reports, " +
+		parts := "split the task, send each worker its part"
+		if workersPrompted {
+			parts = "each worker got its part as its first message, so do not send it again"
+		}
+		b.WriteString("You coordinate: " + parts + ", answer their questions, wait for their reports, " +
 			"check that their changes fit together, then write the user one short summary. Do not change the workers' files yourself.\n" +
 			"claude-inbox itself messages you, as [from claude-inbox], when a worker finishes a turn without reporting it (also one the user " +
 			"started by typing to the worker directly), stops on an error, ends, or goes silent while working. Take those into account " +
 			"before you report to the user.\n")
 	case coordinator != "":
-		fmt.Fprintf(&b, "Wait for your part from %s. After every turn in which you changed something, whoever asked for it (%s, another "+
+		part := "Wait for your part from %s. "
+		if self.prompt != "" {
+			part = "Your first message is your part; %s may send you more. "
+		}
+		fmt.Fprintf(&b, part, coordinator)
+		fmt.Fprintf(&b, "After every turn in which you changed something, whoever asked for it (%s, another "+
 			"session, or the user typing to you directly), tell %s in a short message: what changed, the commit, the tests. "+
 			"Tell %s too when you get blocked. A turn you do not report, claude-inbox reports to %s for you.\n",
-			coordinator, coordinator, coordinator, coordinator, coordinator)
+			coordinator, coordinator, coordinator, coordinator)
 	default:
 		b.WriteString("There is no coordinator: when your change affects another session's part, tell that session.\n")
 	}
