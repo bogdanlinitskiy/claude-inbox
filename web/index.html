@@ -102,7 +102,7 @@
         <div class="repo-scroll" id="ns-repos" role="group" aria-labelledby="ns-repos-label"></div>
       </div>
     </div>
-    <label class="check"><input type="checkbox" id="ns-worktree"> <span id="ns-worktree-label">Start in a new git worktree</span></label>
+    <label class="check"><input type="checkbox" id="ns-worktree"> <span><span id="ns-worktree-label">Start in a new git worktree</span><small class="why" id="ns-worktree-why" hidden>Off while sessions share a folder: they would all need the same branch.</small></span></label>
     <div class="field" id="ns-branch-field" hidden>
       <label for="ns-branch">Branch</label>
       <input id="ns-branch" placeholder="e.g. PROJ-12-part-2">
@@ -111,7 +111,7 @@
     <div class="field"><label for="ns-ticket">Ticket</label><input id="ns-ticket" placeholder="Empty: taken from the branch name"></div>
     <div class="field"><label for="ns-title">Title</label><input id="ns-title" placeholder="Optional"></div>
     <div class="box" id="ns-group-opts" hidden>
-      <label class="check"><input type="checkbox" id="ns-coordinator" checked><span>Add a coordinator<small>One more session, in the folder that holds the repositories. It gets the first message, hands out the work and collects the reports.</small></span></label>
+      <label class="check"><input type="checkbox" id="ns-coordinator" checked><span>Add a coordinator<small>One more session, in the folder that holds the repositories. It gets the first message, hands out the work and collects the reports.</small><small class="why" id="ns-coordinator-why" hidden>Needed while a repository has more than one session: it splits the work between them.</small></span></label>
       <label class="check"><input type="checkbox" id="ns-share" checked><span>Let the sessions read each other's folders</span></label>
     </div>
     <div class="field"><label for="ns-prompt" id="ns-prompt-label">First message</label><textarea id="ns-prompt" rows="3" placeholder="Optional, e.g. Fix the flaky login test"></textarea></div>

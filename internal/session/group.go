@@ -30,8 +30,9 @@ var (
 	plainArg = regexp.MustCompile(`^[A-Za-z0-9_./=-]+$`)
 
 	ErrNoRepos = errors.New("a group needs at least one repository")
-	// ErrTicketsWorktree: several tickets share each folder, so they cannot each have a worktree on one branch.
-	ErrTicketsWorktree = errors.New("several tickets share one folder, so they take no worktree")
+	// ErrTicketsWorktree: several sessions share a folder (several tickets, or a count above 1), so they cannot
+	// each have a worktree on one branch.
+	ErrTicketsWorktree = errors.New("several sessions share one folder, so they take no worktree")
 	// ErrNoGroup: the sending session was not started in a group.
 	ErrNoGroup = errors.New("the session is not in a group")
 	// ErrNotInGroup: no session of the sender's group has that name.
@@ -46,6 +47,9 @@ type StartGroupRequest struct {
 	// Tickets, when set, starts one session per ticket in every folder of Dirs, each on its ticket, instead of
 	// one session per folder on Ticket; Ticket is then the coordinator's.
 	Tickets []string `json:"tickets"`
+	// Counts is the number of sessions in a folder of Dirs, keyed by the folder as it is in Dirs; a folder not in
+	// it gets one. A count above 1 starts that many sessions there, each on Ticket.
+	Counts map[string]int `json:"counts"`
 	// WorkerPrompt, when set, is every worker's first prompt, with TicketPlaceholder replaced by its ticket.
 	WorkerPrompt string `json:"workerPrompt"`
 	Title  string   `json:"title"`
@@ -80,7 +84,7 @@ func (m *Manager) StartGroup(ctx context.Context, req StartGroupRequest) ([]Info
 		}
 	}
 	req.Tickets = tickets
-	if req.Worktree && len(req.Tickets) > 1 {
+	if req.Worktree && (len(req.Tickets) > 1 || slices.ContainsFunc(dirs, func(d string) bool { return countOf(req.Counts, d) > 1 })) {
 		return nil, ErrTicketsWorktree
 	}
 	groupID, err := store.NewID()
@@ -93,7 +97,7 @@ func (m *Manager) StartGroup(ctx context.Context, req StartGroupRequest) ([]Info
 	}
 	if req.Coordinator {
 		dir := commonDir(repoDirs)
-		if len(req.Tickets) > 0 && len(dirs) == 1 {
+		if len(dirs) == 1 && (len(req.Tickets) > 0 || len(members) > 1) {
 			// The workers share the folder, so the coordinator runs there too, with its CLAUDE.md and skills.
 			dir = repoDirs[0]
 		}
@@ -154,14 +158,16 @@ func (m *Manager) groupMembers(ctx context.Context, dirs []string, req StartGrou
 			}
 		}
 		branch := m.branchOf(ctx, store.Meta{Dir: dir})
-		for _, ticket := range tickets {
-			if ticket == "" {
-				ticket = TicketIn(m.cfg.TicketPattern, branch)
+		for range countOf(req.Counts, d) {
+			for _, ticket := range tickets {
+				if ticket == "" {
+					ticket = TicketIn(m.cfg.TicketPattern, branch)
+				}
+				members = append(members, member{
+					meta:   store.Meta{Ticket: ticket, Title: strings.TrimSpace(req.Title), Repo: repo.Name, Dir: dir, Worktree: req.Worktree, Group: groupID, Role: RoleWorker},
+					branch: branch,
+				})
 			}
-			members = append(members, member{
-				meta:   store.Meta{Ticket: ticket, Title: strings.TrimSpace(req.Title), Repo: repo.Name, Dir: dir, Worktree: req.Worktree, Group: groupID, Role: RoleWorker},
-				branch: branch,
-			})
 		}
 		repoDirs = append(repoDirs, repo.Dir)
 	}
@@ -251,6 +257,14 @@ func (m *Manager) groupPrompt(self member, members []member, shareDirs bool) str
 	}
 	b.WriteString("Permission prompts go to the user, never to another session.")
 	return b.String()
+}
+
+// maxPerFolder bounds the sessions one folder of a group gets, so a typo cannot start a hundred.
+const maxPerFolder = 9
+
+// countOf is the number of sessions dir gets: its count, from 1 to maxPerFolder.
+func countOf(counts map[string]int, dir string) int {
+	return min(max(counts[dir], 1), maxPerFolder)
 }
 
 // commonDir is the deepest folder that holds every one of dirs.

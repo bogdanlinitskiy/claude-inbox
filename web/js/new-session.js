@@ -1,9 +1,11 @@
 'use strict';
 
 const overlay = $('#overlay');
-// Multi starts one session per picked repository, as a group (docs/guide.md, "Several repositories at once").
+// Multi starts the picked number of sessions in each picked repository, as a group (docs/guide.md, "Several
+// repositories at once"). picked maps a repository's folder to its number of sessions.
 let multi = false;
-const picked = new Set();
+const picked = new Map();
+const maxPerRepo = 9; // internal/session/group.go caps it the same
 // Single's repository, a radio in the same in-page list: a native <select> opens an OS popup that can land
 // under the cursor while it animates in, and the mouse-up then picks whatever row is there.
 let chosen = '';
@@ -50,23 +52,42 @@ function renderPicker() {
   const seen = new Set();
   const repos = repoList.filter(r => (!multi || !r.workspace) && !seen.has(r.dir) && seen.add(r.dir));
   if (!multi && !repos.some(r => r.dir === chosen)) chosen = repos[0]?.dir || '';
-  const input = r => multi
-    ? `<input type="checkbox" data-dir="${esc(r.dir)}"${picked.has(r.dir) ? ' checked' : ''}>`
-    : `<input type="radio" name="ns-dir" data-dir="${esc(r.dir)}"${r.dir === chosen ? ' checked' : ''}>`;
+  const row = r => {
+    if (!multi) return `<label class="check"><input type="radio" name="ns-dir" data-dir="${esc(r.dir)}"${r.dir === chosen ? ' checked' : ''}> ${esc(r.name)}</label>`;
+    const n = picked.get(r.dir) || 0;
+    const dir = esc(r.dir), name = esc(r.name);
+    return `<div class="repo-row${n > 1 ? ' several' : ''}"><label class="check"><input type="checkbox" data-dir="${dir}"${n ? ' checked' : ''}> ${name}</label>` +
+      (n ? `<span class="stepper" role="group" aria-label="Sessions in ${name}">` +
+        `<button type="button" data-step="-1" data-dir="${dir}" aria-label="One session fewer in ${name}">−</button>` +
+        `<output aria-live="polite">${n}</output>` +
+        `<button type="button" data-step="1" data-dir="${dir}" aria-label="One more session in ${name}"${n >= maxPerRepo ? ' disabled' : ''}>+</button></span>` : '') +
+      '</div>';
+  };
   const html = runs(repos).map(([title, list]) => {
     const hits = list.filter(r => r.name.toLowerCase().includes(q));
     if (!hits.length) return '';
-    return (title ? `<div class="pick-head">${esc(title)}</div>` : '') + hits.map(r =>
-      `<label class="check">${input(r)} ${esc(r.name)}</label>`).join('');
+    return (title ? `<div class="pick-head">${esc(title)}</div>` : '') + hits.map(row).join('');
   }).join('');
   $('#ns-repos').innerHTML = html || `<p class="hint pick-none">${q ? `No repository matches “${esc(q)}”.` : 'No repositories yet: run claude in one, or set roots in the config.'}</p>`;
   const names = new Map(repos.map(r => [r.dir, r.name]));
-  $('#ns-chips').innerHTML = !multi ? '' : [...picked].map(dir => `<span class="chip">${esc(names.get(dir) || dir)}<button type="button" data-unpick="${esc(dir)}" aria-label="Remove ${esc(names.get(dir) || dir)}">×</button></span>`).join('');
+  $('#ns-chips').innerHTML = !multi ? '' : [...picked].map(([dir, n]) => `<span class="chip">${esc(names.get(dir) || dir)}${n > 1 ? `<b>×${n}</b>` : ''}<button type="button" data-unpick="${esc(dir)}" aria-label="Remove ${esc(names.get(dir) || dir)}">×</button></span>`).join('');
   $('#ns-picked').textContent = multi ? `${picked.size} of ${repos.length}` : names.get(chosen) || '';
 }
 
 function renderSubmit() {
-  const n = picked.size + ($('#ns-coordinator').checked ? 1 : 0);
+  // Sessions sharing a folder need the coordinator to split the work, and cannot each have a worktree on one branch.
+  const shared = multi && [...picked.values()].some(n => n > 1);
+  const coordinator = $('#ns-coordinator'), worktree = $('#ns-worktree');
+  if (shared) {
+    coordinator.checked = true;
+    worktree.checked = false;
+    $('#ns-branch-field').hidden = true;
+  }
+  coordinator.disabled = shared;
+  worktree.disabled = shared;
+  $('#ns-coordinator-why').hidden = !shared;
+  $('#ns-worktree-why').hidden = !shared;
+  const n = [...picked.values()].reduce((sum, c) => sum + c, 0) + (coordinator.checked ? 1 : 0);
   $('#ns-submit').textContent = multi ? `Start ${n} session${n === 1 ? '' : 's'}` : 'Start session';
   $('#ns-prompt-label').textContent = !multi ? 'First message' : $('#ns-coordinator').checked ? 'Task for the coordinator' : 'First message for every session';
 }
@@ -77,10 +98,10 @@ function setMode(toMulti) {
   multi = toMulti;
   $('#ns-single').setAttribute('aria-selected', String(!multi));
   $('#ns-multi').setAttribute('aria-selected', String(multi));
-  $('#ns-repos-label').firstChild.data = multi ? 'Repositories, one session each ' : 'Repository ';
+  $('#ns-repos-label').firstChild.data = multi ? 'Repositories ' : 'Repository ';
   $('#ns-group-opts').hidden = !multi;
   $('#ns-hint').textContent = multi
-    ? 'Starts one session per repository, all on one ticket, each told about the others and how to message them.'
+    ? 'Starts one session per repository, or more with +, all on one ticket, each told about the others and how to message them.'
     : 'Starts Claude Code in its own tmux session, in auto mode. It shows up here and alerts you when it needs you.';
   $('#ns-worktree-label').textContent = multi ? 'Each in a new git worktree, on one branch' : 'Start in a new git worktree';
   $('#ns-worktree').checked = false;
@@ -123,8 +144,19 @@ $('#ns-repos').addEventListener('change', e => {
     $('#ns-picked').textContent = e.target.parentElement.textContent.trim();
     return;
   }
-  if (e.target.checked) picked.add(dir); else picked.delete(dir);
+  if (e.target.checked) picked.set(dir, 1); else picked.delete(dir);
   renderPicker();
+});
+// The stepper re-renders the list, so the focus goes back to the same button, or to the box once it unticks.
+$('#ns-repos').addEventListener('click', e => {
+  const btn = e.target.closest('[data-step]');
+  if (!btn) return;
+  const { dir, step } = btn.dataset;
+  const n = Math.min((picked.get(dir) || 0) + Number(step), maxPerRepo);
+  if (n < 1) picked.delete(dir); else picked.set(dir, n);
+  renderPicker();
+  const at = `[data-dir="${CSS.escape(dir)}"]`;
+  ($(`#ns-repos [data-step="${step}"]${at}:not(:disabled)`) || $(`#ns-repos input${at}`))?.focus();
 });
 $('#ns-chips').addEventListener('click', e => {
   const dir = e.target.dataset.unpick;
@@ -151,7 +183,7 @@ $('#new-form').addEventListener('submit', async e => {
     if (multi) {
       if (!picked.size) throw new Error('Pick at least one repository.');
       started = await api('POST', '/api/groups', {
-        ...common, dirs: [...picked], coordinator: $('#ns-coordinator').checked, shareDirs: $('#ns-share').checked,
+        ...common, dirs: [...picked.keys()], counts: Object.fromEntries(picked), coordinator: $('#ns-coordinator').checked, shareDirs: $('#ns-share').checked,
       });
     } else {
       if (!chosen) throw new Error('Pick a repository.');
