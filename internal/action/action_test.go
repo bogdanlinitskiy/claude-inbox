@@ -39,7 +39,7 @@ func TestValidate(t *testing.T) {
 }
 
 func TestText(t *testing.T) {
-	ticket := "CLS-12"
+	ticket := "PROJ-12"
 
 	assert.Equal(t, "Work on "+ticket+", then review "+ticket, Action{Send: "Work on {input}, then review {input}"}.Text(ticket))
 }
