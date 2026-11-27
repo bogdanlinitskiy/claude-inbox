@@ -45,7 +45,7 @@ func TestPageConfigListsActions(t *testing.T) {
 
 func TestSendActionTypesItsTextWithTheInput(t *testing.T) {
 	f := actionFixture(t, state.KindIdle)
-	ticket := "CLS-7"
+	ticket := "PROJ-7"
 
 	w := f.do(request(http.MethodPost, actionPath, `{"list":"primary","index":1,"input":"`+ticket+`"}`))
 
