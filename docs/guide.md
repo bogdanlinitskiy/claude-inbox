@@ -117,6 +117,10 @@ For a task that changes several repositories, the **Multi** tab of New session s
 as a group. Tick the repositories (the box above the list filters it; the ticked ones stay as chips above it), and
 give one ticket. Tick the worktree box to start each session in a new worktree of its repository, on one branch.
 
+A ticked repository shows **− 1 +** on the right: press **+** to start more sessions in it, up to 9, for work that
+splits inside one repository; **−** at 1 unticks it. While a repository has more than one session, the coordinator
+is on and locked, since it splits the work between them, and the worktree box is off, since they share one folder.
+
 Every session of the group is told, in its system prompt, which other sessions are in the group, where they run,
 and how to message them. With **Let the sessions read each other's folders** each one can also read the others'
 folders (`claude --add-dir`), so a session can check another repository's side of a contract without asking.

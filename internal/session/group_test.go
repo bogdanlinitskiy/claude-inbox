@@ -136,6 +136,37 @@ func TestStartGroupWithTicketsInOneFolder(t *testing.T) {
 	assert.Contains(t, secondInfo.TmuxName, second)
 }
 
+func TestStartGroupWithSeveralSessionsInOneFolder(t *testing.T) {
+	f := newFixture(t)
+	ticket, prompt, workers := "PROJ-5", "Split the knowledge base update.", 3
+
+	infos, err := f.m.StartGroup(context.Background(), StartGroupRequest{
+		Dirs: []string{f.repo}, Counts: map[string]int{f.repo: workers}, Ticket: ticket, Coordinator: true, Prompt: prompt,
+	})
+
+	require.NoError(t, err)
+	require.Len(t, infos, workers+1, "the workers in the folder and the coordinator")
+	coordinator := infos[0]
+	assert.Equal(t, RoleCoordinator, coordinator.Role)
+	assert.Equal(t, f.repo, coordinator.Dir, "the workers share the folder, so the coordinator runs there too")
+	names := map[string]bool{}
+	for i, worker := range infos[1:] {
+		assert.Equal(t, RoleWorker, worker.Role)
+		assert.Equal(t, f.repo, worker.Dir)
+		assert.Equal(t, ticket, worker.Ticket)
+		names[worker.TmuxName] = true
+		cmd := f.tmux.started[i+1].Command
+		assert.Contains(t, cmd[len(cmd)-1], "Wait for your part from "+coordinator.TmuxName)
+	}
+	assert.Len(t, names, workers, "each worker has its own name")
+	coordCmd := f.tmux.started[0].Command
+	assert.Equal(t, prompt, coordCmd[len(coordCmd)-1])
+
+	_, err = f.m.StartGroup(context.Background(), StartGroupRequest{Dirs: []string{f.repo}, Counts: map[string]int{f.repo: 100}})
+	require.NoError(t, err)
+	assert.Len(t, f.tmux.started, len(infos)+maxPerFolder, "a count is capped")
+}
+
 func TestStartGroupRefusals(t *testing.T) {
 	f := newFixture(t)
 	ctx := context.Background()
@@ -150,6 +181,9 @@ func TestStartGroupRefusals(t *testing.T) {
 	require.ErrorIs(t, err, ErrNoBranch)
 
 	_, err = f.m.StartGroup(ctx, StartGroupRequest{Dirs: []string{f.repo}, Tickets: []string{"PROJ-1", "PROJ-2"}, Worktree: true, Branch: "b"})
+	require.ErrorIs(t, err, ErrTicketsWorktree)
+
+	_, err = f.m.StartGroup(ctx, StartGroupRequest{Dirs: []string{f.repo}, Counts: map[string]int{f.repo: 2}, Worktree: true, Branch: "b"})
 	require.ErrorIs(t, err, ErrTicketsWorktree)
 
 	assert.Empty(t, f.tmux.started, "nothing starts when one repository cannot")
