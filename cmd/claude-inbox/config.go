@@ -28,7 +28,6 @@ type fileConfig struct {
 	PrimaryActions   []action.Action `json:"primary_actions"`
 	SecondaryActions []action.Action `json:"secondary_actions"`
 	IDE              string          `json:"ide"`
-	CheatSheet       string          `json:"cheatsheet"`
 	TicketPattern    string          `json:"ticket_pattern"`
 	StripPrefix      string          `json:"strip_prefix"`
 	EmbedOrigin      string          `json:"embed_origin"`

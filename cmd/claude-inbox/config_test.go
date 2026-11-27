@@ -30,7 +30,7 @@ func TestLoadConfigWithoutAFile(t *testing.T) {
 
 func TestLoadConfig(t *testing.T) {
 	path := writeConfig(t, `{"roots": ["~/work", "/srv/repos"], "workspaces": ["~"], "ide": "code",
-		"cheatsheet": "http://127.0.0.1:9000/", "ticket_pattern": "", "strip_prefix": "acme-", "embed_origin": "http://127.0.0.1:9000"}`)
+		"ticket_pattern": "", "strip_prefix": "acme-", "embed_origin": "http://127.0.0.1:9000"}`)
 
 	c, err := loadConfig(path, testHome)
 
@@ -39,7 +39,6 @@ func TestLoadConfig(t *testing.T) {
 		Roots:       []string{filepath.Join(testHome, "work"), "/srv/repos"},
 		Workspaces:  []string{testHome},
 		IDE:         "code",
-		CheatSheet:  "http://127.0.0.1:9000/",
 		StripPrefix: "acme-",
 		EmbedOrigin: "http://127.0.0.1:9000",
 	}, c, "~ expands, and an empty ticket pattern stays empty")

@@ -149,7 +149,6 @@ type serveFlags struct {
 	workspaces    string
 	claude        string
 	ide           string
-	cheatSheet    string
 	ticketPattern string
 	stripPrefix   string
 	embedOrigin   string
@@ -180,7 +179,6 @@ func runServe(args []string) error {
 	flags.StringVar(&f.workspaces, "workspaces", strings.Join(cfg.Workspaces, ","), "comma-separated further folders a session can start in, for work across repositories")
 	flags.StringVar(&f.claude, "claude", "claude", "claude command")
 	flags.StringVar(&f.ide, "ide", cfg.IDE, "command that opens a folder in the IDE; empty hides the button")
-	flags.StringVar(&f.cheatSheet, "cheatsheet", cfg.CheatSheet, "URL the Cheat sheet button opens; empty hides the button")
 	flags.StringVar(&f.ticketPattern, "ticket-pattern", cfg.TicketPattern, "regexp that finds the ticket id in a git branch name; empty finds none")
 	flags.StringVar(&f.stripPrefix, "strip-prefix", cfg.StripPrefix, "prefix left out of repository names in tmux session names")
 	flags.StringVar(&f.embedOrigin, "embed-origin", cfg.EmbedOrigin, "the one other origin that may show the app in a frame and set its theme, e.g. http://127.0.0.1:7700")
@@ -253,7 +251,7 @@ func runServe(args []string) error {
 		Handler: server.New(server.Config{
 			Port: f.port, Token: token, Sessions: sessions, Diff: gitdiff.Compute,
 			Commit: gitdiff.Commit, Push: gitdiff.Push, OpenPR: openPR(),
-			OpenIDE: openIDE(f.ide, logger), Web: web.Files, CheatSheet: f.cheatSheet, StripPrefix: f.stripPrefix, EmbedOrigin: embed,
+			OpenIDE: openIDE(f.ide, logger), Web: web.Files, StripPrefix: f.stripPrefix, EmbedOrigin: embed,
 			PrimaryActions: cfg.PrimaryActions, SecondaryActions: cfg.SecondaryActions, Logger: logger,
 		}),
 		ReadHeaderTimeout: readHeaderTimeout,
