@@ -65,7 +65,6 @@ async function loadPageConfig() {
   pageConfig = await api('GET', '/api/config');
   pageConfig.primaryActions ??= [];
   pageConfig.secondaryActions ??= [];
-  $('#cheatsheet').hidden = !pageConfig.cheatSheet;
   followEmbedder(pageConfig.embedOrigin);
   render();
 }

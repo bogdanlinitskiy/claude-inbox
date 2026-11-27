@@ -181,9 +181,8 @@ Errors are `{message, code}`.
 | `GET /api/conversation/{id}/preview` | The first prompt, the last three prompts and Claude's last reply. |
 | `POST /api/conversation/{id}/resume` | `claude --resume <id>` in its folder as a new app session. 409 while it runs in a listed session or when its folder is gone. |
 | `GET /api/repos` | The folders a session can start in, in the start form's order, each with the `group` heading it is listed under: the repositories Claude ran in before (latest first), the workspaces, then the other repositories under the roots; or, with `repo_groups` configured, the groups' repositories and workspaces in config order, then the workspaces no group lists. |
-| `GET /api/config` | `{ide, pr, cheatSheet, stripPrefix, embedOrigin, primaryActions, secondaryActions}`: which optional buttons the page shows (`pr`: `gh` is on PATH), the prefix it leaves out of repository names, the origin that may frame it, and the actions as `{label, kind, text, input, confirm}` (`kind` is `send` or `run`, `text` the prompt or command). |
+| `GET /api/config` | `{ide, pr, stripPrefix, embedOrigin, primaryActions, secondaryActions}`: which optional buttons the page shows (`pr`: `gh` is on PATH), the prefix it leaves out of repository names, the origin that may frame it, and the actions as `{label, kind, text, input, confirm}` (`kind` is `send` or `run`, `text` the prompt or command). |
 | `GET /api/stream` | SSE: one message per state change, flagged `live`. |
-| `GET /cheatsheet` | Redirects to the `--cheatsheet` URL. |
 
 Auth: `serve` makes a random 32-byte token per run and prints the login URL. Every `/api/` request needs the cookie
 (constant-time compare). Every request needs a `Host` of `127.0.0.1:<port>` or `localhost:<port>` (blocks DNS

@@ -86,7 +86,7 @@ const openDiffFiles = new Set();
 let shownDiff = null;
 // GET /api/config: which optional buttons have something behind them (hidden until it says so), the prefix left
 // out of repository names, and the origin that may frame the page.
-let pageConfig = { ide: false, cheatSheet: false, stripPrefix: '', embedOrigin: '', primaryActions: [], secondaryActions: [] };
+let pageConfig = { ide: false, stripPrefix: '', embedOrigin: '', primaryActions: [], secondaryActions: [] };
 // The action waiting for its second click, and the actions on their way, by actionKey.
 let armedAction = null;
 const runningActions = new Set();

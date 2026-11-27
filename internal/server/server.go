@@ -65,8 +65,6 @@ type Config struct {
 	OpenPR func(ctx context.Context, dir string) (string, error)
 	// Web holds the page; index.html is served at /.
 	Web fs.FS
-	// CheatSheet is the URL /cheatsheet redirects to. Empty turns the route and the page's button off.
-	CheatSheet string
 	// StripPrefix is left out of repository names on the page.
 	StripPrefix string
 	// EmbedOrigin is the one other origin, e.g. http://127.0.0.1:7700, that may show the page in a frame and set
@@ -120,7 +118,6 @@ func New(cfg Config) *Server {
 	mux := http.NewServeMux()
 	mux.Handle("/api/", s.requireToken(api))
 	mux.HandleFunc("GET /{$}", s.page)
-	mux.Handle("GET /cheatsheet", s.requireToken(http.HandlerFunc(s.cheatSheet)))
 	// No method in this pattern: "GET /" would overlap "/api/" with neither more specific, which ServeMux refuses.
 	mux.Handle("/", s.requireToken(http.FileServerFS(cfg.Web)))
 	s.handler = s.guard(mux)
@@ -154,7 +151,6 @@ func (s *Server) page(w http.ResponseWriter, r *http.Request) {
 type pageConfig struct {
 	IDE              bool         `json:"ide"`
 	PR               bool         `json:"pr"`
-	CheatSheet       bool         `json:"cheatSheet"`
 	StripPrefix      string       `json:"stripPrefix"`
 	EmbedOrigin      string       `json:"embedOrigin"`
 	PrimaryActions   []pageAction `json:"primaryActions"`
@@ -163,17 +159,9 @@ type pageConfig struct {
 
 func (s *Server) pageConfig(w http.ResponseWriter, _ *http.Request) {
 	writeJSON(w, http.StatusOK, pageConfig{
-		IDE: s.cfg.OpenIDE != nil, PR: s.cfg.OpenPR != nil, CheatSheet: s.cfg.CheatSheet != "", StripPrefix: s.cfg.StripPrefix, EmbedOrigin: s.cfg.EmbedOrigin,
+		IDE: s.cfg.OpenIDE != nil, PR: s.cfg.OpenPR != nil, StripPrefix: s.cfg.StripPrefix, EmbedOrigin: s.cfg.EmbedOrigin,
 		PrimaryActions: pageActions(s.cfg.PrimaryActions), SecondaryActions: pageActions(s.cfg.SecondaryActions),
 	})
-}
-
-func (s *Server) cheatSheet(w http.ResponseWriter, r *http.Request) {
-	if s.cfg.CheatSheet == "" {
-		writeError(w, http.StatusNotFound, codeNotFound, "No cheat sheet is set; start serve with --cheatsheet <url>.")
-		return
-	}
-	http.Redirect(w, r, s.cfg.CheatSheet, http.StatusFound)
 }
 
 type errorBody struct {

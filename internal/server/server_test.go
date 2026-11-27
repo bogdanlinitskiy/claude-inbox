@@ -358,22 +358,6 @@ func TestFrameAncestors(t *testing.T) {
 	assert.Equal(t, "frame-ancestors 'self' "+embedOrigin, embedded.do(request(http.MethodGet, "/api/sessions", "")).Header().Get("Content-Security-Policy"))
 }
 
-func TestCheatSheet(t *testing.T) {
-	f := newFixture()
-	target := "http://127.0.0.1:9000/cheat.html"
-
-	assert.Equal(t, http.StatusNotFound, f.do(request(http.MethodGet, "/cheatsheet", "")).Code, "off by default")
-
-	f.srv.cfg.CheatSheet = target
-	w := f.do(request(http.MethodGet, "/cheatsheet", ""))
-	noCookie := httptest.NewRequest(http.MethodGet, "/cheatsheet", http.NoBody)
-	noCookie.Host = host
-
-	assert.Equal(t, http.StatusFound, w.Code)
-	assert.Equal(t, target, w.Header().Get("Location"))
-	assert.Equal(t, http.StatusUnauthorized, f.do(noCookie).Code)
-}
-
 func TestListAndGet(t *testing.T) {
 	f := newFixture()
 
@@ -679,14 +663,13 @@ func TestPageConfig(t *testing.T) {
 	withIDE := f.do(request(http.MethodGet, "/api/config", ""))
 	f.srv.cfg.OpenIDE = nil
 	f.srv.cfg.OpenPR = nil
-	f.srv.cfg.CheatSheet = "http://127.0.0.1:9000/cheat.html"
 	f.srv.cfg.StripPrefix = "acme-"
 	f.srv.cfg.EmbedOrigin = "http://127.0.0.1:9000"
-	withCheatSheet := f.do(request(http.MethodGet, "/api/config", ""))
+	withoutIDE := f.do(request(http.MethodGet, "/api/config", ""))
 
 	assert.Equal(t, http.StatusOK, withIDE.Code)
-	assert.JSONEq(t, `{"ide":true,"pr":true,"cheatSheet":false,"stripPrefix":"","embedOrigin":"","primaryActions":[],"secondaryActions":[]}`, withIDE.Body.String())
-	assert.JSONEq(t, `{"ide":false,"pr":false,"cheatSheet":true,"stripPrefix":"acme-","embedOrigin":"http://127.0.0.1:9000","primaryActions":[],"secondaryActions":[]}`, withCheatSheet.Body.String())
+	assert.JSONEq(t, `{"ide":true,"pr":true,"stripPrefix":"","embedOrigin":"","primaryActions":[],"secondaryActions":[]}`, withIDE.Body.String())
+	assert.JSONEq(t, `{"ide":false,"pr":false,"stripPrefix":"acme-","embedOrigin":"http://127.0.0.1:9000","primaryActions":[],"secondaryActions":[]}`, withoutIDE.Body.String())
 }
 
 func TestDiffOutsideARepository(t *testing.T) {
