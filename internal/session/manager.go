@@ -4,6 +4,7 @@
 package session
 
 import (
+	"cmp"
 	"context"
 	"errors"
 	"fmt"
@@ -161,8 +162,12 @@ type Info struct {
 
 // Conversation is a past conversation as History shows it.
 type Conversation struct {
-	ID        string `json:"id"`
-	Title     string `json:"title"`
+	ID    string `json:"id"`
+	Title string `json:"title"`
+	// Prompt is the first prompt typed, Name the title the page gave the session that held the conversation:
+	// History searches both, as Claude Code's own title often has neither's words.
+	Prompt    string `json:"prompt,omitempty"`
+	Name      string `json:"name,omitempty"`
 	Ticket    string `json:"ticket"`
 	Repo      string `json:"repo"`
 	Dir       string `json:"dir"`
@@ -277,7 +282,7 @@ func New(ctx context.Context, cfg Config) (*Manager, error) {
 			return nil, err
 		}
 		if e.ended() {
-			if err := cfg.Store.Archive(meta.ID); err != nil {
+			if err := m.archive(e); err != nil {
 				return nil, err
 			}
 			continue
@@ -512,6 +517,16 @@ func (m *Manager) Conversations() ([]Conversation, error) {
 		held[e.state.ClaudeSessionID] = true
 	}
 	m.mu.Unlock()
+	archived, err := m.cfg.Store.ArchivedMetas()
+	if err != nil {
+		return nil, err
+	}
+	names := map[string]string{}
+	for _, meta := range archived {
+		if meta.Title != "" {
+			names[cmp.Or(meta.ClaudeID, meta.ID)] = meta.Title
+		}
+	}
 	list := make([]Conversation, 0, len(all))
 	folders := map[string]bool{}
 	for _, c := range all {
@@ -525,7 +540,7 @@ func (m *Manager) Conversations() ([]Conversation, error) {
 			continue
 		}
 		list = append(list, Conversation{
-			ID: c.ID, Title: c.Title, Ticket: TicketIn(m.cfg.TicketPattern, c.Branch), Repo: filepath.Base(c.Dir),
+			ID: c.ID, Title: c.Title, Prompt: c.Prompt, Name: names[c.ID], Ticket: TicketIn(m.cfg.TicketPattern, c.Branch), Repo: filepath.Base(c.Dir),
 			Dir: c.Dir, Branch: c.Branch, UpdatedAt: state.FormatTime(c.UpdatedAt),
 		})
 	}
@@ -651,14 +666,27 @@ func (m *Manager) Close(ctx context.Context, id string) error {
 
 // remove archives the session and takes it off the list.
 func (m *Manager) remove(e *entry) error {
-	if err := m.cfg.Store.Archive(e.meta.ID); err != nil {
-		return err
-	}
 	m.mu.Lock()
 	defer m.mu.Unlock()
+	if err := m.archive(e); err != nil {
+		return err
+	}
 	delete(m.entries, e.meta.ID)
 	m.publish(e, true, true)
 	return nil
+}
+
+// archive moves the session's files to the archive, its metadata with the id of its Claude conversation, which
+// History looks the session's title up by. Called with m.mu held, or before the manager is shared.
+func (m *Manager) archive(e *entry) error {
+	if id := e.state.ClaudeSessionID; id != "" && id != e.meta.ClaudeID {
+		meta := e.meta
+		meta.ClaudeID = id
+		if err := m.cfg.Store.SaveMeta(meta); err != nil {
+			return err
+		}
+	}
+	return m.cfg.Store.Archive(e.meta.ID)
 }
 
 // Attach returns the command line that attaches a terminal to the session.
@@ -816,7 +844,7 @@ func (m *Manager) pollEvents() {
 			continue
 		}
 		if e.ended() {
-			if err := m.cfg.Store.Archive(id); err != nil {
+			if err := m.archive(e); err != nil {
 				m.cfg.Logger.Error("archive ended session", "session", id, "err", err)
 				continue
 			}

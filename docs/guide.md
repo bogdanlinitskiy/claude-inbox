@@ -145,7 +145,9 @@ running in tmux — see `claude-tmux` — can be answered like any other; the re
 ## History
 
 The **History** filter lists past conversations from Claude Code's own transcripts, searchable, with a preview and
-a Resume button that starts it again in tmux, where it rejoins the list.
+a Resume button that starts it again in tmux, where it rejoins the list. The search box matches the title, the
+first prompt, the title the page gave the session that held the conversation, the repository, ticket, branch and
+folder.
 
 ## Alerts
 

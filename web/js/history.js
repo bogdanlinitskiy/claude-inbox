@@ -38,7 +38,7 @@ async function loadPast() {
 function pastList() {
   const words = pastQuery.toLowerCase().split(/\s+/).filter(Boolean);
   return [...past.values()].filter(c => {
-    const text = [c.title, c.repo, c.ticket, c.branch, c.dir].join(' ').toLowerCase();
+    const text = [c.title, c.name, c.prompt, c.repo, c.ticket, c.branch, c.dir].join(' ').toLowerCase();
     return words.every(w => text.includes(w));
   });
 }

@@ -1286,7 +1286,7 @@ func TestConversationsLeaveOutListedSessions(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, list, 1, "the app session holds its conversation")
 	assert.Equal(t, Conversation{
-		ID: discoveredID, Title: transcriptPrompt, Ticket: "PROJ-7", Repo: repoName, Dir: f.repo, Branch: "PROJ-7-old",
+		ID: discoveredID, Title: transcriptPrompt, Prompt: transcriptPrompt, Ticket: "PROJ-7", Repo: repoName, Dir: f.repo, Branch: "PROJ-7-old",
 		UpdatedAt: list[0].UpdatedAt,
 	}, list[0])
 
@@ -1295,6 +1295,26 @@ func TestConversationsLeaveOutListedSessions(t *testing.T) {
 	list, err = f.m.Conversations()
 	require.NoError(t, err)
 	assert.Empty(t, list)
+}
+
+func TestConversationsCarryTheTitleOfTheClosedSession(t *testing.T) {
+	f := newFixture(t)
+	f.tmux.exitOnSlashExit = true
+	appConversation := "11111111-1111-4111-8111-111111111111"
+	f.transcript(t, appConversation, f.repo)
+	info := f.start(t, "PROJ-1", "")
+	f.hook(t, info.ID, map[string]any{"hook_event_name": "SessionStart", "session_id": appConversation})
+	f.m.pollEvents()
+	_, err := f.m.Rename(info.ID, "Rate limit, second try")
+	require.NoError(t, err)
+	require.NoError(t, f.m.Close(context.Background(), info.ID))
+
+	list, err := f.m.Conversations()
+
+	require.NoError(t, err)
+	require.Len(t, list, 1)
+	assert.Equal(t, appConversation, list[0].ID)
+	assert.Equal(t, "Rate limit, second try", list[0].Name)
 }
 
 func TestConversationsLeaveOutGoneFolders(t *testing.T) {

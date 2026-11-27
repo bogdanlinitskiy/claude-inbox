@@ -66,8 +66,8 @@ func TestListReadsFolderBranchAndTitleLatestFirst(t *testing.T) {
 
 	require.NoError(t, err)
 	require.Len(t, list, 2)
-	assert.Equal(t, Conversation{ID: idNew, Title: customTitle, Dir: dir, Branch: branch, UpdatedAt: newer}, normalize(list[0]))
-	assert.Equal(t, Conversation{ID: idOld, Title: aiTitle, Dir: dir, Branch: branch, UpdatedAt: older}, normalize(list[1]))
+	assert.Equal(t, Conversation{ID: idNew, Title: customTitle, Prompt: "start", Dir: dir, Branch: branch, UpdatedAt: newer}, normalize(list[0]))
+	assert.Equal(t, Conversation{ID: idOld, Title: aiTitle, Prompt: "fix the bonus", Dir: dir, Branch: branch, UpdatedAt: older}, normalize(list[1]))
 }
 
 func normalize(c Conversation) Conversation {
